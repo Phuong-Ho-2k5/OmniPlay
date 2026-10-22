@@ -1,0 +1,9 @@
+# Copy to application-local.yaml and activate the local profile.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:omniplay}}
+    username: ${POSTGRES_USER:omniplay}
+    password: ${POSTGRES_PASSWORD:}

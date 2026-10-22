@@ -1,0 +1,58 @@
+# Local configuration and secrets (all subprojects)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# Build outputs
+target/
+build/
+dist/
+out/
+coverage/
+
+# Preserve source directories named target or build
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Backend configuration and Maven wrapper cache
+/backend/HELP.md
+/backend/.mvn/wrapper/maven-wrapper.jar
+/backend/src/main/resources/application-local.*
+!/backend/src/main/resources/application-local.example.yaml
+
+# Spring Tool Suite / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans
+/backend/nbproject/private/
+/backend/nbbuild/
+/backend/nbdist/
+/backend/.nb-gradle/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
