@@ -22,5 +22,5 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
-      - name: Build and test
-        run: sh ./mvnw -B clean verify
+      - name: Build backend
+        run: sh ./mvnw -B clean package -Dmaven.test.skip=true

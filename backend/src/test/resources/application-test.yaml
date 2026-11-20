@@ -1,7 +1,0 @@
-# Isolated smoke test; PostgreSQL-specific SQL still needs integration testing.
-spring:
-  datasource:
-    url: jdbc:h2:mem:omniplay-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""

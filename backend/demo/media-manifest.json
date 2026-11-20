@@ -1,0 +1,10 @@
+[
+  {"media_id":"20000000-0000-4000-8000-000000000001","media_type":"VIDEO","duration_seconds":12,"file_path":"demo/video-01.mp4","thumbnail_path":"demo/video-01.jpg","frequency":330,"color":"0x2563eb"},
+  {"media_id":"20000000-0000-4000-8000-000000000002","media_type":"VIDEO","duration_seconds":16,"file_path":"demo/video-02.mp4","thumbnail_path":"demo/video-02.jpg","frequency":440,"color":"0x7c3aed"},
+  {"media_id":"20000000-0000-4000-8000-000000000003","media_type":"VIDEO","duration_seconds":20,"file_path":"demo/video-03.mp4","thumbnail_path":"demo/video-03.jpg","frequency":550,"color":"0x0891b2"},
+  {"media_id":"20000000-0000-4000-8000-000000000004","media_type":"MUSIC","duration_seconds":18,"file_path":"demo/music-01.mp3","thumbnail_path":"demo/music-01.jpg","frequency":262,"color":"0x059669"},
+  {"media_id":"20000000-0000-4000-8000-000000000005","media_type":"MUSIC","duration_seconds":22,"file_path":"demo/music-02.mp3","thumbnail_path":"demo/music-02.jpg","frequency":349,"color":"0x65a30d"},
+  {"media_id":"20000000-0000-4000-8000-000000000006","media_type":"MUSIC","duration_seconds":26,"file_path":"demo/music-03.mp3","thumbnail_path":"demo/music-03.jpg","frequency":392,"color":"0xca8a04"},
+  {"media_id":"20000000-0000-4000-8000-000000000007","media_type":"PODCAST","duration_seconds":24,"file_path":"demo/podcast-01.mp3","thumbnail_path":"demo/podcast-01.jpg","frequency":196,"color":"0xea580c"},
+  {"media_id":"20000000-0000-4000-8000-000000000008","media_type":"PODCAST","duration_seconds":30,"file_path":"demo/podcast-02.mp3","thumbnail_path":"demo/podcast-02.jpg","frequency":247,"color":"0xdb2777"}
+]
