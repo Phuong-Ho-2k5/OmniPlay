@@ -1,0 +1,9 @@
+# Opt-in sample data. Combine with local or provide a datasource through the environment.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/demo
+
+# File paths in media are relative to this directory; streaming is implemented on Day 8.
+omniplay:
+  media:
+    root: ${MEDIA_ROOT:./media}

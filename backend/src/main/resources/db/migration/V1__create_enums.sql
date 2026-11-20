@@ -1,0 +1,4 @@
+CREATE TYPE media_kind AS ENUM ('VIDEO', 'MUSIC', 'PODCAST');
+CREATE TYPE listening_kind AS ENUM ('MUSIC', 'PODCAST');
+CREATE TYPE quest_scope AS ENUM ('ANY', 'SAVED');
+CREATE TYPE quest_status AS ENUM ('ACTIVE', 'CLAIMABLE', 'CLAIMED', 'EXPIRED');
