@@ -52,7 +52,7 @@ coverage/
 # Logs
 *.log
 
-# Generated local demo fixtures and Python caches
+# Generated demo fixtures and local tooling
 /backend/media/
 /backend/.tools/
 __pycache__/

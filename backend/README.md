@@ -3,8 +3,10 @@
 Backend cho ứng dụng OmniPlay, sử dụng Java 21, Spring Boot 4.1.1, Spring MVC,
 Spring Security, Spring Data JPA, PostgreSQL và Flyway.
 
-Hiện đã có schema database, seed thể loại, Quest, Badge và dữ liệu demo kèm media
-local. API nghiệp vụ đăng nhập, danh mục, streaming và Quest chưa được triển khai.
+Hiện đã có schema database, seed thể loại, Quest, Badge, dữ liệu demo kèm media
+local, User Repository và cấu trúc lỗi API thống nhất. Spring Security bảo vệ các
+đường dẫn nghiệp vụ và cho phép GET health. API đăng nhập, danh mục, streaming và
+Quest chưa được triển khai.
 
 ## Yêu cầu
 
@@ -25,7 +27,7 @@ Mở PostgreSQL bằng tài khoản quản trị:
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost
 ```
 
-Nhập mật khẩu `postgres`, rồi chạy SQL bên dưới. Thay mật khẩu mẫu bằng mật khẩu
+Nhập mật khẩu của tài khoản quản trị, rồi chạy SQL bên dưới. Thay mật khẩu mẫu bằng mật khẩu
 bạn chọn; bỏ qua lệnh tạo user nếu user đó đã tồn tại.
 
 ```sql
@@ -115,9 +117,11 @@ Mở cửa sổ PowerShell khác:
 Invoke-RestMethod http://localhost:8080/actuator/health
 ```
 
-Kết quả mong đợi là `{"status":"UP"}`. Spring Security hiện dùng cấu hình mặc định:
-health truy cập công khai, các đường dẫn khác yêu cầu xác thực. Tài khoản mặc định
-`user` và mật khẩu in trong log khởi động tách biệt với các tài khoản seed trong database.
+Kết quả có `"status":"UP"`; Actuator có thể kèm tên các health group. Endpoint này
+truy cập công khai bằng GET và kiểm tra cả kết nối PostgreSQL, không công khai chi tiết DB.
+Các đường dẫn khác yêu cầu xác thực và trả JSON 401 khi chưa có phiên hợp lệ.
+HTTP Basic, form login, session và tài khoản `user` tự sinh đã được tắt.
+API đăng nhập và kiểm tra Bearer token sẽ được bổ sung trong phần xác thực.
 
 ## Migration và seed
 
@@ -134,8 +138,8 @@ Flyway quản lý schema; Hibernate dùng `ddl-auto: validate`. Khi thay đổi 
 được áp dụng, thêm migration mới. Không sửa checksum hoặc bật baseline để ép dùng
 một database có lịch sử migration khác.
 
-Thiết kế gốc nằm trong [tài liệu database](../docs/Database/). Quy tắc XP dưới đây
-thay thế mức cố định 10 XP trong tài liệu gốc.
+Schema thực tế nằm trong `src/main/resources/db/migration/`. Thưởng Quest dùng
+công thức theo số lượng và nguồn nội dung như bảng dưới đây.
 
 ## Dữ liệu demo
 
@@ -164,11 +168,20 @@ Database kiểm tra công thức ở cả mẫu Quest và bản chụp Daily Que
 một lần khi hoàn thành cả Quest. Badge mở tại 10/50/100 XP; Level bằng `1 + total_xp / 100`
 với phép chia nguyên.
 
+## Lỗi API và cấu trúc mã nguồn
+
+`common/error` chuẩn hóa `{code, message, fieldErrors}`. Validation, JSON/UUID sai
+trả 400; thiếu tài nguyên trả 404; lỗi bất ngờ trả 500 với thông báo chung. Các lỗi
+Security 401/403 dùng cùng cấu trúc JSON. Health giữ định dạng Actuator riêng.
+
+`config/SecurityConfig` quản lý quyền truy cập; `user/User` và `UserRepository`
+map bảng tài khoản hiện tại. Chưa có endpoint xác thực hoặc JWT filter.
+
 ## Build và chạy JAR
 
 ```powershell
-.\mvnw.cmd -B clean package -Dmaven.test.skip=true
-java -Duser.timezone=UTC -jar target/omniplay-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=local,demo
+.\mvnw.cmd -B clean package -DskipTests
+java "-Duser.timezone=UTC" -jar target/omniplay-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=local,demo
 ```
 
 Giữ `-Duser.timezone=UTC` khi chạy JAR để PostgreSQL không nhận alias múi giờ của hệ

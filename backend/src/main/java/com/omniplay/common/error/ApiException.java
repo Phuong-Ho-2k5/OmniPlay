@@ -1,0 +1,18 @@
+package com.omniplay.common.error;
+
+import java.util.Map;
+
+public class ApiException extends RuntimeException {
+    private final ErrorCode code;
+    private final Map<String, String> fieldErrors;
+
+    public ApiException(ErrorCode code, Map<String, String> fieldErrors) {
+        super(code.message());
+        this.code = code;
+        this.fieldErrors = Map.copyOf(fieldErrors);
+    }
+
+    public ApiException(ErrorCode code) { this(code, Map.of()); }
+    public ErrorCode code() { return code; }
+    public Map<String, String> fieldErrors() { return fieldErrors; }
+}
