@@ -20,13 +20,10 @@ target/
 build/
 dist/
 out/
-coverage/
 
 # Preserve source directories named target or build
 !**/src/main/**/target/
-!**/src/test/**/target/
 !**/src/main/**/build/
-!**/src/test/**/build/
 
 # Backend configuration and Maven wrapper cache
 /backend/HELP.md
@@ -62,3 +59,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+/backend/.env

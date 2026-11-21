@@ -1,97 +1,69 @@
 # OmniPlay
 
-OmniPlay là ứng dụng Android kết hợp xem video, nghe nhạc, podcast và đọc bài viết, xây dựng bằng **Flutter** và **Spring Boot**. Nội dung mẫu được nhóm chuẩn bị, metadata lưu trong PostgreSQL và file media lưu riêng trên máy chủ.
+OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, hướng tới xem video, nghe nhạc, podcast và đọc bài viết. Metadata lưu trong PostgreSQL; file media nằm trên máy chủ.
 
-## Trạng thái hiện tại
+## Chức năng hiện có
 
-Repository đã có phần nền tảng để chạy Backend và ứng dụng Android, gồm:
+- Đăng ký tài khoản với validation, chuẩn hóa email và mật khẩu BCrypt.
+- Đăng nhập, cấp JWT và refresh token, lưu AuthSession trong PostgreSQL.
+- Xác thực Bearer token, chuẩn hóa lỗi API và cung cấp health endpoint.
+- Biểu mẫu Flutter theo MVVM, hiển thị lỗi theo trường và giữ token trong RAM.
+- Schema PostgreSQL, migration Flyway, danh mục tham chiếu và dữ liệu demo.
 
-- Schema PostgreSQL với 23 bảng, migration Flyway và dữ liệu demo.
-- Cấu hình môi trường local/demo, User Repository và xử lý lỗi API thống nhất.
-- Spring Security bảo vệ các đường dẫn nghiệp vụ; health endpoint truy cập công khai.
-- Flutter theo MVVM, API Client dùng chung và màn kiểm tra kết nối đến Backend.
-- Workflow GitHub Actions cho Backend và Android.
-
-API đăng ký, đăng nhập, JWT, danh mục và các chức năng media chưa được triển khai. Màn hình hiện tại dùng để kiểm tra kết nối, chưa phải giao diện sử dụng đầy đủ của ứng dụng.
+Sau đăng nhập, ứng dụng mở màn kết nối dịch vụ. Các API nội dung, refresh/logout và lưu phiên lâu dài chưa được triển khai.
 
 ## Công nghệ
 
 | Thành phần | Công nghệ |
 | --- | --- |
-| Ứng dụng | Flutter 3.47.9, Dart 3.13.7, Android |
+| Android | Flutter 3.50.1, Dart 3.14.0 |
 | Backend | Java 21, Spring Boot 4.1.1, Maven Wrapper |
-| API và bảo mật | Spring MVC, Spring Security, Bean Validation |
-| Truy cập dữ liệu | Spring Data JPA, PostgreSQL |
-| Migration | Flyway; Hibernate dùng `ddl-auto: validate` |
-| Media mẫu | File local; Python, FFmpeg và FFprobe để tạo dữ liệu |
+| Bảo mật | Spring Security, JWT HS256, BCrypt |
+| Dữ liệu | Spring Data JPA, PostgreSQL, Flyway |
+| Media demo | Python 3.10+, FFmpeg, FFprobe |
 
-## Cấu trúc repository
+## Cấu trúc
 
 ```text
-backend/          Backend Spring Boot, migration, seed và công cụ tạo media
-mobile-frontend/  Ứng dụng Flutter Android
-.github/workflows/  Workflow build Backend và Android
+backend/            API, bảo mật, truy cập dữ liệu và migration
+mobile-frontend/    Ứng dụng Flutter Android
+docs/               Tài liệu kiến trúc, API và yêu cầu nghiệp vụ
+.github/workflows/  Workflow build backend và APK
 ```
 
-Backend tổ chức theo chức năng; các thành phần dùng chung nằm trong `common` và `config`. Frontend đi theo luồng **View → ViewModel → Repository → API Client**, dùng ChangeNotifier và truyền dependency qua constructor.
+Backend chia package theo chức năng. Flutter đi theo luồng View → ViewModel → Repository → ApiClient, dùng ChangeNotifier và dependency qua constructor.
 
 ## Chạy local
 
-Cần JDK 21, PostgreSQL, Flutter SDK và Android SDK. Để chạy ứng dụng, chuẩn bị một thiết bị Android hoặc emulator. Python và FFmpeg chỉ cần khi tạo media demo.
-
-### Backend
-
-Tạo database và cấu hình theo [hướng dẫn Backend](backend/README.md), sau đó mở terminal tại `backend/`:
+Chuẩn bị PostgreSQL và khóa JWT theo [hướng dẫn backend](backend/README.md), sau đó chạy từ `backend/`:
 
 ```powershell
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local,demo"
 ```
 
-Backend mặc định chạy tại `http://localhost:8080`. Kiểm tra trong terminal khác:
-
-```powershell
-Invoke-RestMethod http://localhost:8080/actuator/health
-```
-
-Kết quả cần có `status: UP`. Các đường dẫn nghiệp vụ yêu cầu xác thực; khi chưa có phiên hợp lệ, Backend trả JSON 401.
-
-### Android
-
-Mở terminal tại `mobile-frontend/`:
+Backend mặc định ở `http://localhost:8080`. Từ `mobile-frontend/`:
 
 ```powershell
 flutter pub get
 flutter run --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
-`10.0.2.2` trỏ đến máy host từ Android Emulator. Với máy thật, thay bằng IP LAN của máy chạy Backend và kết nối cùng mạng. Nhấn **Kiểm tra** trong ứng dụng để gọi health; nếu thất bại, ứng dụng hiển thị thông báo và cho **Thử lại**.
-
-Cấu hình môi trường, cách build APK và cấu trúc MVVM nằm trong [hướng dẫn Frontend](mobile-frontend/README.md).
+`10.0.2.2` trỏ từ Android Emulator về máy host. Với điện thoại qua USB, dùng `adb reverse` theo [hướng dẫn Flutter](mobile-frontend/README.md). Khi truy cập qua mạng, dùng HTTPS.
 
 ## Dữ liệu demo
 
-Profile `demo` bổ sung 3 tài khoản, 3 video, 3 bài nhạc, 2 podcast, 2 bài viết và dữ liệu Đã lưu/playlist mẫu. Seed thể loại, 10 mẫu Quest và 3 Badge được nạp cùng migration thông thường.
+Profile `demo` bổ sung ba tài khoản, ba video, ba bài nhạc, hai podcast, hai bài viết và dữ liệu Đã lưu/playlist. Seed thể loại, mẫu Quest và Badge đi cùng migration thông thường.
 
-File media được tạo bằng `backend/scripts/prepare_demo_media.py` và không đưa vào Git. Tài khoản seed hiện phục vụ chuẩn bị dữ liệu; chưa đăng nhập được qua API.
+File media được tạo bằng `backend/scripts/prepare_demo_media.py` và không đưa vào Git. Thông tin tài khoản demo nằm trong README backend.
 
-## Phạm vi chức năng dự kiến
+## Cấu hình
 
-| Nhóm | Chức năng |
-| --- | --- |
-| Tài khoản | Đăng ký, đăng nhập, gia hạn phiên, đăng xuất và hồ sơ |
-| Khám phá | Danh mục video, nhạc, podcast, bài viết và tìm kiếm |
-| Phát nội dung | Phát/tạm dừng, tua, tiếp tục và quản lý phiên nghe |
-| Thư viện | Lưu nội dung, đọc bài viết và playlist nhạc |
-| Dọn playlist | Ghi nhận Skip và gợi ý xử lý bài thường bị bỏ qua |
-| Quest và phần thưởng | Nhiệm vụ trong ngày, XP, Level và Badge |
-| Mystery Box | Chọn nội dung ngẫu nhiên theo bộ lọc |
+- Giữ mật khẩu, khóa JWT và cấu hình local ngoài Git; dùng các file `.example` làm mẫu.
+- Flutter nhận `APP_ENV` và `API_BASE_URL` qua `--dart-define`.
+- Bản Android debug hỗ trợ HTTP local; môi trường demo yêu cầu HTTPS.
+- Flyway quản lý schema, Hibernate dùng `ddl-auto: validate`.
 
-## Cấu hình và bảo mật
-
-- Dùng file `.example` làm mẫu; giữ mật khẩu database và cấu hình local ngoài Git.
-- Frontend nhận `APP_ENV` và `API_BASE_URL` qua `--dart-define`; không dùng chúng để lưu secret.
-- Dev hỗ trợ HTTP local trong bản Android debug. Môi trường demo yêu cầu URL HTTPS; cấu hình server HTTPS cần được chuẩn bị riêng.
-- Flyway quản lý schema. Khi cần thay đổi schema đã áp dụng, thêm migration mới.
+Xem [kiến trúc](docs/architecture.md) và [hợp đồng API xác thực](docs/api/auth-contract.md).
 
 
 

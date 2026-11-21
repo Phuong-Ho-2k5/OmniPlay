@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-import '../features/connection/presentation/connection_screen.dart';
+import '../features/auth/presentation/auth_gate.dart';
 import 'app_dependencies.dart';
 
 class OmniPlayApp extends StatefulWidget {
@@ -25,6 +25,6 @@ class _OmniPlayAppState extends State<OmniPlayApp> {
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3564E0)),
     ),
-    home: ConnectionScreen(viewModel: widget.dependencies.connectionViewModel),
+    home: AuthGate(dependencies: widget.dependencies),
   );
 }

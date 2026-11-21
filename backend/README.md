@@ -1,25 +1,21 @@
 # OmniPlay Backend
 
-Backend cho ứng dụng OmniPlay, sử dụng Java 21, Spring Boot 4.1.1, Spring MVC,
-Spring Security, Spring Data JPA, PostgreSQL và Flyway.
+Backend Java 21 / Spring Boot 4.1.1, sử dụng Spring MVC, Spring Security, Spring Data JPA, PostgreSQL và Flyway.
 
-Hiện đã có schema database, seed thể loại, Quest, Badge, dữ liệu demo kèm media
-local, User Repository và cấu trúc lỗi API thống nhất. Spring Security bảo vệ các
-đường dẫn nghiệp vụ và cho phép GET health. API đăng nhập, danh mục, streaming và
-Quest chưa được triển khai.
+Backend hỗ trợ đăng ký, đăng nhập, cấp token và xác thực JWT. GET health cùng POST đăng ký/đăng nhập truy cập công khai. Các API nội dung, refresh và logout chưa được triển khai.
 
 ## Yêu cầu
 
 - JDK 21 và `JAVA_HOME` trỏ đến JDK.
-- PostgreSQL đang chạy. Các ví dụ Windows bên dưới dùng PostgreSQL 18.
-- Maven Wrapper đi kèm dự án.
-- Python 3.10+, FFmpeg và FFprobe nếu cần tạo media demo.
+- PostgreSQL đang chạy; ví dụ dưới đây dùng PostgreSQL 18.
+- Maven Wrapper đi kèm repository.
+- Python 3.10+, FFmpeg và FFprobe khi tạo media demo.
 
-Chạy các lệnh bên dưới từ thư mục `backend/`.
+Chạy các lệnh từ thư mục `backend/`.
 
-## Chạy local trên Windows
+## Cấu hình local
 
-### 1. Tạo user và database
+### Database
 
 Mở PostgreSQL bằng tài khoản quản trị:
 
@@ -27,33 +23,29 @@ Mở PostgreSQL bằng tài khoản quản trị:
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost
 ```
 
-Nhập mật khẩu của tài khoản quản trị, rồi chạy SQL bên dưới. Thay mật khẩu mẫu bằng mật khẩu
-bạn chọn; bỏ qua lệnh tạo user nếu user đó đã tồn tại.
+Tạo user và database bằng mật khẩu do bạn chọn:
 
 ```sql
 CREATE USER omniplay_dev WITH PASSWORD 'your_database_password';
 CREATE DATABASE omniplay_local OWNER omniplay_dev;
-\q
 ```
 
-Database cần trống ở lần chạy đầu. Nếu đã dùng bản migration gộp V1/V2/V3 cũ,
-hãy tạo database development/demo mới cho cấu trúc migration hiện tại.
+Lần khởi động đầu cần database trống để Flyway tạo schema.
 
-### 2. Cấu hình kết nối
+### Datasource
 
-Tạo các file local nếu chưa có:
+Tạo file cấu hình từ mẫu nếu chưa có:
 
 ```powershell
-if (!(Test-Path .env)) {
+if (-not [System.IO.File]::Exists('.env')) {
     Copy-Item .env.example .env
 }
-if (!(Test-Path src/main/resources/application-local.yaml)) {
+if (-not [System.IO.File]::Exists('src/main/resources/application-local.yaml')) {
     Copy-Item src/main/resources/application-local.example.yaml src/main/resources/application-local.yaml
 }
-notepad .env
 ```
 
-Điền thông tin khớp với database và user đã tạo:
+Điền các giá trị trong `.env`:
 
 ```dotenv
 POSTGRES_DB=omniplay_local
@@ -63,142 +55,123 @@ POSTGRES_PORT=5432
 SERVER_PORT=8080
 ```
 
-`.env` được đọc dưới dạng Java properties, mỗi dòng `KEY=value`, không đặt giá trị
-trong dấu nháy. Biến môi trường hệ thống được ưu tiên hơn `.env`. Có thể đặt
-`DATABASE_URL=jdbc:postgresql://host:port/database` để ghi đè URL kết nối.
+Profile `local` nạp `application-local.yaml` và `.env` từ working directory. Giá trị `.env` dùng cú pháp Java properties `KEY=value`, không đặt trong dấu nháy. Biến môi trường hệ thống được ưu tiên hơn file local.
 
-Profile `local` nạp `application-local.yaml` và `.env` từ thư mục làm việc.
-Các file local này đã được Git bỏ qua; file `.example` là cấu hình mẫu dùng chung.
+Có thể đặt `DATABASE_URL=jdbc:postgresql://host:port/database` để ghi đè URL. Khi không dùng profile local, cung cấp `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`.
 
-### 3. Tạo media mẫu khi dùng demo
+### Khóa JWT
 
-FFmpeg và FFprobe cần có trên PATH, hoặc nằm trong `.tools/ffmpeg/bin/`.
-Cũng có thể chỉ định đường dẫn executable bằng hai biến `FFMPEG` và `FFPROBE`.
+`JWT_SECRET_BASE64` bắt buộc là Base64 của ít nhất 32 byte ngẫu nhiên. Backend dừng khởi động nếu khóa thiếu, sai định dạng hoặc quá ngắn.
+
+Có thể tạo khóa trong terminal hiện tại:
 
 ```powershell
-python scripts/prepare_demo_media.py
+if (-not $env:JWT_SECRET_BASE64) {
+    $jwtBytes = New-Object byte[] 32
+    $jwtRng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $jwtRng.GetBytes($jwtBytes)
+    $env:JWT_SECRET_BASE64 = [Convert]::ToBase64String($jwtBytes)
+    $jwtRng.Dispose()
+    Remove-Variable jwtBytes,jwtRng
+}
 ```
 
-Script tạo 3 video MP4 H.264/AAC, 3 bài nhạc MP3, 2 podcast MP3 và 8 thumbnail JPEG
-trong `media/demo/`, theo `demo/media-manifest.json`. Đây là nội dung tổng hợp phục vụ
-demo; podcast dùng âm thanh giả lập. UUID, đường dẫn và thời lượng khớp seed database.
+Có thể cung cấp cùng biến qua file `.env`. Giữ cùng khóa khi khởi động lại để access token đã cấp tiếp tục hợp lệ. Không đưa khóa thật vào Git hoặc log.
 
-Chạy lại sẽ giữ file hiện có và kiểm tra chúng. Dùng `--force` để tạo lại file mẫu.
-Mặc định media root là `./media`; nếu đổi vị trí, đặt `MEDIA_ROOT` và truyền cùng
-đường dẫn cho generator qua `--media-root`. Các đường dẫn trong database tương đối
-với media root. `media/` và `.tools/` được Git bỏ qua.
+## Khởi động
 
-### 4. Khởi động backend
-
-Chạy cùng dữ liệu demo:
+Chạy với dữ liệu demo:
 
 ```powershell
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local,demo"
 ```
 
-Nếu chỉ cần schema và seed thể loại, Quest, Badge:
+Chỉ nạp schema và danh mục tham chiếu:
 
 ```powershell
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-Flyway tự áp dụng migration khi backend khởi động. Chạy lại trên cùng database
-không nạp trùng seed. Khi database đã nạp demo, tiếp tục dùng `local,demo`;
-tắt profile `demo` không xóa dữ liệu đã nạp.
+Trong IDE, đặt working directory là `backend/`. Server mặc định chạy ở `http://localhost:8080`. GET `/actuator/health` là endpoint theo dõi trạng thái dịch vụ, bao gồm kết nối PostgreSQL, với chi tiết nội bộ được ẩn.
 
-Trong IDE, đặt working directory là `backend/` và active profiles là `local,demo`
-hoặc `local`. Backend mặc định chạy tại `http://localhost:8080`.
+## API tài khoản
 
-### 5. Kiểm tra kết nối
+| Method | Endpoint | Chức năng |
+| --- | --- | --- |
+| POST | `/auth/register` | Tạo tài khoản |
+| POST | `/auth/login` | Đăng nhập và cấp cặp token |
+| GET | `/actuator/health` | Trạng thái dịch vụ |
 
-Mở cửa sổ PowerShell khác:
+Register nhận `{email, password, displayName}`, trả HTTP 201 với `{userId, email, displayName}`. Email trim/lowercase; tên hiển thị trim. Password giữ nguyên, có ít nhất 8 Unicode code point và tối đa 72 byte UTF-8, lưu bằng BCrypt cost 10.
 
-```powershell
-Invoke-RestMethod http://localhost:8080/actuator/health
-```
+Login nhận `{email, password}`, trả HTTP 200 với `{accessToken, refreshToken, tokenType, accessExpiresIn, refreshExpiresAt}`. Access token có hiệu lực 900 giây. Mỗi login tạo AuthSession riêng, hết hạn sau 168 giờ; database chỉ lưu SHA-256 của toàn refresh token.
 
-Kết quả có `"status":"UP"`; Actuator có thể kèm tên các health group. Endpoint này
-truy cập công khai bằng GET và kiểm tra cả kết nối PostgreSQL, không công khai chi tiết DB.
-Các đường dẫn khác yêu cầu xác thực và trả JSON 401 khi chưa có phiên hợp lệ.
-HTTP Basic, form login, session và tài khoản `user` tự sinh đã được tắt.
-API đăng nhập và kiểm tra Bearer token sẽ được bổ sung trong phần xác thực.
+Các API được bảo vệ nhận `Authorization: Bearer <accessToken>`. Backend xác minh HS256, issuer, audience, UUID user/phiên và thời hạn. Health và hai API auth công khai bỏ qua header token cũ/sai. HTTP Basic, form login và HTTP session được tắt.
+
+Lỗi dùng cấu trúc `{code, message, fieldErrors}`:
+
+| HTTP | Code |
+| --- | --- |
+| 400 | VALIDATION_ERROR |
+| 401 | INVALID_CREDENTIALS, ACCESS_TOKEN_INVALID, ACCESS_TOKEN_EXPIRED |
+| 403 | FORBIDDEN |
+| 409 | EMAIL_ALREADY_USED |
+| 500 | INTERNAL_ERROR |
+
+Chi tiết request, response và quy tắc token nằm trong [hợp đồng API](../docs/api/auth-contract.md).
 
 ## Migration và seed
 
 | Phiên bản | Nội dung |
 | --- | --- |
-| V1 | Tạo 4 enum PostgreSQL |
-| V2–V24 | Tạo 23 bảng, mỗi bảng một file; tổng cộng 130 cột |
-| V25 | Tạo toàn bộ 34 FK |
-| V26 | Tạo 25 index bổ sung; index PK/UNIQUE được tạo cùng ràng buộc bảng |
-| V27 | Nạp 4 thể loại, Q01–Q10 và 3 Badge |
-| V28, chỉ bật với profile `demo` | Nạp tài khoản, 8 media, 2 Post, dữ liệu Đã lưu và playlist mẫu |
+| V1 | Bốn enum PostgreSQL |
+| V2–V24 | 23 bảng, mỗi bảng một file |
+| V25 | Foreign key |
+| V26 | Index bổ sung |
+| V27 | Thể loại, mẫu Quest và Badge |
+| V28 với profile demo | Tài khoản, media, bài viết, Đã lưu và playlist mẫu |
 
-Flyway quản lý schema; Hibernate dùng `ddl-auto: validate`. Khi thay đổi schema đã
-được áp dụng, thêm migration mới. Không sửa checksum hoặc bật baseline để ép dùng
-một database có lịch sử migration khác.
-
-Schema thực tế nằm trong `src/main/resources/db/migration/`. Thưởng Quest dùng
-công thức theo số lượng và nguồn nội dung như bảng dưới đây.
+Flyway quản lý schema; Hibernate dùng `ddl-auto: validate`. Thay đổi schema bằng migration mới, không sửa checksum của migration đã áp dụng. Tắt profile demo không xóa dữ liệu đã nạp.
 
 ## Dữ liệu demo
 
-Mật khẩu của cả ba tài khoản là `OmniPlayDemo!2026`, được lưu bằng BCrypt cost 10.
-Các tài khoản này sẵn sàng cho API xác thực ở giai đoạn tiếp theo.
+Ba tài khoản dùng mật khẩu `OmniPlayDemo!2026`, được lưu bằng BCrypt:
 
 | Email | Dữ liệu ban đầu |
 | --- | --- |
-| `normal@demo.omniplay.local` | Chưa lưu nội dung, XP 0, Level 1 |
-| `saved@demo.omniplay.local` | Lưu 8 media và 1 Post |
-| `cleanup@demo.omniplay.local` | Playlist 3 bài nhạc; bài đầu có 5 Skip và còn bài kế |
+| `normal@demo.omniplay.local` | XP 0, Level 1, chưa lưu nội dung |
+| `saved@demo.omniplay.local` | Lưu tám media và một bài viết |
+| `cleanup@demo.omniplay.local` | Playlist ba bài nhạc, bài đầu có năm Skip |
 
-Không cấp sẵn Daily Quest, Badge cho người dùng, phiên đăng nhập hoặc tiến độ phát.
+Không cấp sẵn phiên đăng nhập, Daily Quest, Badge người dùng hoặc tiến độ phát.
 
-Thưởng Quest bằng số nội dung mục tiêu nhân **10 XP cho ANY** hoặc **15 XP cho SAVED**:
+Tạo media mẫu:
 
-| Quest | Mục tiêu | Tổng XP |
-| --- | --- | --- |
-| Q01, Q02, Q07 | 1 nội dung ANY | 10 |
-| Q03, Q04, Q06 | 1 nội dung SAVED | 15 |
-| Q05 | 2 nội dung SAVED | 30 |
-| Q08, Q09 | 2 nội dung ANY | 20 |
-| Q10 | 3 nội dung ANY | 30 |
+```powershell
+python scripts/prepare_demo_media.py
+```
 
-Database kiểm tra công thức ở cả mẫu Quest và bản chụp Daily Quest. Thưởng được nhận
-một lần khi hoàn thành cả Quest. Badge mở tại 10/50/100 XP; Level bằng `1 + total_xp / 100`
-với phép chia nguyên.
+FFmpeg/FFprobe cần trên PATH hoặc trong `.tools/ffmpeg/bin/`. Có thể chỉ định executable bằng `FFMPEG` và `FFPROBE`. Script tạo video MP4, âm thanh MP3 và thumbnail theo `demo/media-manifest.json`. Media root mặc định là `./media`; có thể đổi bằng `MEDIA_ROOT` và `--media-root`.
 
-## Lỗi API và cấu trúc mã nguồn
-
-`common/error` chuẩn hóa `{code, message, fieldErrors}`. Validation, JSON/UUID sai
-trả 400; thiếu tài nguyên trả 404; lỗi bất ngờ trả 500 với thông báo chung. Các lỗi
-Security 401/403 dùng cùng cấu trúc JSON. Health giữ định dạng Actuator riêng.
-
-`config/SecurityConfig` quản lý quyền truy cập; `user/User` và `UserRepository`
-map bảng tài khoản hiện tại. Chưa có endpoint xác thực hoặc JWT filter.
+Thưởng Quest bằng `target_count × 10 XP` cho ANY hoặc `target_count × 15 XP` cho SAVED. Badge mở tại 10/50/100 XP; Level bằng `1 + total_xp / 100` với phép chia nguyên.
 
 ## Build và chạy JAR
 
 ```powershell
-.\mvnw.cmd -B clean package -DskipTests
+.\mvnw.cmd -B clean package
 java "-Duser.timezone=UTC" -jar target/omniplay-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=local,demo
 ```
 
-Giữ `-Duser.timezone=UTC` khi chạy JAR để PostgreSQL không nhận alias múi giờ của hệ
-điều hành. Maven đã cấu hình tùy chọn này khi dùng `spring-boot:run`.
+Maven đã cấu hình timezone UTC cho `spring-boot:run`. Trên macOS/Linux, dùng `sh ./mvnw` thay cho `.\mvnw.cmd`.
 
-Trên macOS/Linux, dùng `sh ./mvnw` thay cho `.\mvnw.cmd`, và `cp` thay cho `Copy-Item`.
-Khi chạy ngoài profile `local`, cung cấp datasource qua `SPRING_DATASOURCE_URL`,
-`SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`. GitHub Actions build bằng Java 21.
-
-## Cấu trúc thư mục
+## Mã nguồn
 
 ```text
-src/main/java/com/omniplay/       Mã nguồn backend
-src/main/resources/              Cấu hình ứng dụng
-src/main/resources/db/migration/ Enum, bảng, FK, index và seed danh mục
-src/main/resources/db/demo/      Seed dữ liệu demo
-demo/media-manifest.json         Metadata dùng để tạo media mẫu
-scripts/prepare_demo_media.py    Công cụ tạo media mẫu
-media/                          Media local, được Git bỏ qua
+src/main/java/com/omniplay/auth/       Xác thực, phiên và token
+src/main/java/com/omniplay/user/       Entity và repository tài khoản
+src/main/java/com/omniplay/dto/        Request/response
+src/main/java/com/omniplay/config/     Bean và cấu hình bảo mật/JSON
+src/main/java/com/omniplay/common/     Lỗi API dùng chung
+src/main/resources/db/migration/      Schema và danh mục tham chiếu
+src/main/resources/db/demo/           Dữ liệu demo
 ```

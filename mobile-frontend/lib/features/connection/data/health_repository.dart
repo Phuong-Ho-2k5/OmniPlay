@@ -14,6 +14,7 @@ class RemoteHealthRepository implements HealthRepository {
     final data = await _client.getJson(
       '/actuator/health',
       expectedStatusCode: 200,
+      authenticated: false,
     );
     if (data['status'] != 'UP') {
       throw const ApiException(

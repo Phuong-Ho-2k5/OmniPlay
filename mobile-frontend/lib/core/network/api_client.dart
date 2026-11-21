@@ -11,15 +11,44 @@ class ApiClient {
     required this._client,
     required this._baseUri,
     this._timeout = const Duration(seconds: 10),
+    this._accessTokenProvider,
   });
 
   final http.Client _client;
   final Uri _baseUri;
   final Duration _timeout;
+  final String? Function()? _accessTokenProvider;
+
+  Future<Map<String, dynamic>> postJson(
+    String path, {
+    required Map<String, dynamic> body,
+    required int expectedStatusCode,
+    bool authenticated = false,
+  }) => _request(
+    'POST',
+    path,
+    body: body,
+    expectedStatusCode: expectedStatusCode,
+    authenticated: authenticated,
+  );
 
   Future<Map<String, dynamic>> getJson(
     String path, {
     int? expectedStatusCode,
+    bool authenticated = true,
+  }) => _request(
+    'GET',
+    path,
+    expectedStatusCode: expectedStatusCode,
+    authenticated: authenticated,
+  );
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    int? expectedStatusCode,
+    required bool authenticated,
   }) async {
     final relative = Uri.parse(path);
     if (!path.startsWith('/') || relative.hasAuthority || relative.hasScheme) {
@@ -31,10 +60,20 @@ class ApiClient {
     // Signal the transport before returning a timeout to a caller that may retry.
     final abort = Completer<void>.sync();
     final request = http.AbortableRequest(
-      'GET',
+      method,
       _baseUri.resolveUri(relative),
       abortTrigger: abort.future,
     )..headers['Accept'] = 'application/json';
+    if (body != null) {
+      request.headers['Content-Type'] = 'application/json; charset=utf-8';
+      request.bodyBytes = utf8.encode(jsonEncode(body));
+    }
+    if (authenticated) {
+      final token = _accessTokenProvider?.call();
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+    }
     try {
       response =
           await (() async => http.Response.fromStream(

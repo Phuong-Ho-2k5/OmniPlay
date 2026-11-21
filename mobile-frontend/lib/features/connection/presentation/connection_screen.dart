@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'connection_state.dart' as connection;
 import 'connection_view_model.dart';
 
 class ConnectionScreen extends StatelessWidget {
-  const ConnectionScreen({super.key, required this.viewModel});
+  const ConnectionScreen({super.key, required this.viewModel, this.notice});
   final ConnectionViewModel viewModel;
+  final String? notice;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -27,6 +28,16 @@ class ConnectionScreen extends StatelessWidget {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (notice != null) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          notice!,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                     Icon(
                       Icons.cloud_outlined,
                       size: 64,

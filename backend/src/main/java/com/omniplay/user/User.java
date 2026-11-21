@@ -34,6 +34,18 @@ public class User {
 
     protected User() {}
 
+    public static User create(UUID id, String email, String passwordHash, String displayName, Instant createdAt) {
+        var user = new User();
+        user.userId = id;
+        user.email = email;
+        user.passwordHash = passwordHash;
+        user.displayName = displayName;
+        user.totalXp = 0;
+        user.level = 1;
+        user.createdAt = createdAt;
+        return user;
+    }
+
     public UUID getUserId() { return userId; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

@@ -4,6 +4,9 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Dữ liệu chưa hợp lệ."),
+    EMAIL_ALREADY_USED(HttpStatus.CONFLICT, "Email đã được sử dụng."),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng."),
+    ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Phiên truy cập đã hết hạn."),
     ACCESS_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập để tiếp tục."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy tài nguyên."),
