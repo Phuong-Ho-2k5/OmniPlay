@@ -9,9 +9,11 @@ class LoginScreen extends StatefulWidget {
     super.key,
     required this.createViewModel,
     required this.registerScreenBuilder,
+    this.notice,
   });
   final LoginViewModel Function() createViewModel;
   final WidgetBuilder registerScreenBuilder;
+  final String? notice;
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -72,6 +74,14 @@ class _LoginScreenState extends State<LoginScreen> {
         title: 'Đăng nhập',
         subtitle: 'Chào mừng bạn trở lại với OmniPlay.',
         children: [
+          if (widget.notice != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(widget.notice!, textAlign: TextAlign.center),
+              ),
+            ),
           if (_successMessage != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),

@@ -19,6 +19,15 @@ public class AuthInputValidator {
         this.validator = validator;
     }
 
+    public String requireRefreshToken(String token) {
+        if (token == null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                    java.util.Map.of("refreshToken", "Refresh token phải là chuỗi."));
+        }
+        // Empty/malformed strings remain tokens to authenticate, rather than body validation errors.
+        return token;
+    }
+
     public LoginRequest normalizeAndValidate(LoginRequest input) {
         String email = normalizeEmail(input.email());
         var fields = new LinkedHashMap<String, String>();

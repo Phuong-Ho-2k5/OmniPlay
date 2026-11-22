@@ -13,6 +13,13 @@ class TokenPair {
   final String tokenType;
   final int accessExpiresIn;
   final DateTime refreshExpiresAt;
+  Map<String, dynamic> toJson() => {
+    'accessToken': accessToken,
+    'refreshToken': refreshToken,
+    'tokenType': tokenType,
+    'accessExpiresIn': accessExpiresIn,
+    'refreshExpiresAt': refreshExpiresAt.toUtc().toIso8601String(),
+  };
   factory TokenPair.fromJson(Map<String, dynamic> json) {
     if (json['tokenType'] != 'Bearer' ||
         json['accessExpiresIn'] is! int ||

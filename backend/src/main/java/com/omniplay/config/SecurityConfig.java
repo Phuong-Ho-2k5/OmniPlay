@@ -4,6 +4,7 @@ import com.omniplay.common.error.ApiErrorWriter;
 import com.omniplay.common.error.ErrorCode;
 import com.omniplay.auth.AuthAuthenticationEntryPoint;
 import jakarta.servlet.DispatcherType;
+import java.util.Set;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,6 +16,9 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 
 @Configuration
 public class SecurityConfig {
+    private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
+            "/auth/register", "/auth/login", "/auth/refresh", "/auth/logout");
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ApiErrorWriter errors,
             AuthAuthenticationEntryPoint entryPoint) throws Exception {
@@ -29,8 +33,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS.toArray(String[]::new)).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(entryPoint)
@@ -42,7 +45,7 @@ public class SecurityConfig {
                             String path = request.getRequestURI().substring(request.getContextPath().length());
                             boolean publicRequest = "GET".equals(request.getMethod()) && "/actuator/health".equals(path)
                                     || "POST".equals(request.getMethod())
-                                    && ("/auth/register".equals(path) || "/auth/login".equals(path));
+                                    && PUBLIC_AUTH_PATHS.contains(path);
                             return publicRequest ? null : bearerTokens.resolve(request);
                         })
                         .authenticationEntryPoint(entryPoint)

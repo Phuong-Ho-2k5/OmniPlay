@@ -4,13 +4,29 @@ import 'connection_state.dart' as connection;
 import 'connection_view_model.dart';
 
 class ConnectionScreen extends StatelessWidget {
-  const ConnectionScreen({super.key, required this.viewModel, this.notice});
+  const ConnectionScreen({
+    super.key,
+    required this.viewModel,
+    this.notice,
+    this.onLogout,
+  });
   final ConnectionViewModel viewModel;
   final String? notice;
+  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('OmniPlay')),
+    appBar: AppBar(
+      title: const Text('OmniPlay'),
+      actions: [
+        TextButton.icon(
+          key: const Key('auth.logout'),
+          onPressed: onLogout,
+          icon: const Icon(Icons.logout),
+          label: const Text('Đăng xuất'),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(

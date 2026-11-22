@@ -20,10 +20,19 @@ class LoginViewModel extends ChangeNotifier {
       return;
     }
     _update(AuthFormState(AuthFormStatus.submitting));
+    final generation = _sessions.generation;
     try {
       final tokens = await _repository.login(email: email, password: password);
       if (_disposed) return;
-      _sessions.replace(tokens);
+      if (_sessions.generation != generation) {
+        _update(AuthFormState(AuthFormStatus.idle));
+        return;
+      }
+      await _sessions.install(tokens);
+      if (_sessions.tokens != tokens) {
+        _update(AuthFormState(AuthFormStatus.idle));
+        return;
+      }
       _update(AuthFormState(AuthFormStatus.success));
     } catch (error) {
       _update(AuthFormState.failure(error, registration: false));

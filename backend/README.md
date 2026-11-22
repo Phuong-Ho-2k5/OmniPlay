@@ -2,7 +2,7 @@
 
 Backend Java 21 / Spring Boot 4.1.1, sử dụng Spring MVC, Spring Security, Spring Data JPA, PostgreSQL và Flyway.
 
-Backend hỗ trợ đăng ký, đăng nhập, cấp token và xác thực JWT. GET health cùng POST đăng ký/đăng nhập truy cập công khai. Các API nội dung, refresh và logout chưa được triển khai.
+Backend hỗ trợ đăng ký, đăng nhập, refresh rotation, đăng xuất và xác thực JWT. GET health cùng POST đăng ký/đăng nhập/refresh/logout truy cập công khai. Các API nội dung chưa được triển khai.
 
 ## Yêu cầu
 
@@ -100,25 +100,39 @@ Trong IDE, đặt working directory là `backend/`. Server mặc định chạy 
 | --- | --- | --- |
 | POST | `/auth/register` | Tạo tài khoản |
 | POST | `/auth/login` | Đăng nhập và cấp cặp token |
+| POST | `/auth/refresh` | Đổi refresh token và cấp cặp token mới |
+| POST | `/auth/logout` | Thu hồi phiên hiện tại, trả 204 không body |
 | GET | `/actuator/health` | Trạng thái dịch vụ |
 
 Register nhận `{email, password, displayName}`, trả HTTP 201 với `{userId, email, displayName}`. Email trim/lowercase; tên hiển thị trim. Password giữ nguyên, có ít nhất 8 Unicode code point và tối đa 72 byte UTF-8, lưu bằng BCrypt cost 10.
 
 Login nhận `{email, password}`, trả HTTP 200 với `{accessToken, refreshToken, tokenType, accessExpiresIn, refreshExpiresAt}`. Access token có hiệu lực 900 giây. Mỗi login tạo AuthSession riêng, hết hạn sau 168 giờ; database chỉ lưu SHA-256 của toàn refresh token.
 
-Các API được bảo vệ nhận `Authorization: Bearer <accessToken>`. Backend xác minh HS256, issuer, audience, UUID user/phiên và thời hạn. Health và hai API auth công khai bỏ qua header token cũ/sai. HTTP Basic, form login và HTTP session được tắt.
+Refresh/logout nhận `{refreshToken}` trong JSON body, không yêu cầu access token.
+Refresh giữ hạn tuyệt đối 168 giờ của phiên gốc; token cũ dùng lại thu hồi đúng
+phiên. Logout xác minh hash hiện hành hoặc history, trả 204 không body kể cả khi
+phiên hết hạn/đã thu hồi hoặc token lạ. Thiếu/null/sai kiểu trường trả 400.
+
+Các API được bảo vệ nhận `Authorization: Bearer <accessToken>`. Backend xác minh HS256, issuer, audience, UUID user/phiên và thời hạn. Health và bốn API auth công khai bỏ qua header token cũ/sai. HTTP Basic, form login và HTTP session được tắt. Logout không vô hiệu JWT ngay; access token đã cấp giữ mốc hết hạn ban đầu.
 
 Lỗi dùng cấu trúc `{code, message, fieldErrors}`:
 
 | HTTP | Code |
 | --- | --- |
 | 400 | VALIDATION_ERROR |
-| 401 | INVALID_CREDENTIALS, ACCESS_TOKEN_INVALID, ACCESS_TOKEN_EXPIRED |
+| 401 | INVALID_CREDENTIALS, ACCESS_TOKEN_INVALID, ACCESS_TOKEN_EXPIRED, REFRESH_TOKEN_INVALID, REFRESH_TOKEN_EXPIRED |
 | 403 | FORBIDDEN |
 | 409 | EMAIL_ALREADY_USED |
 | 500 | INTERNAL_ERROR |
 
 Chi tiết request, response và quy tắc token nằm trong [hợp đồng API](../docs/api/auth-contract.md).
+
+Lõi refresh rotation nằm trong `RefreshRotationService`: khóa dòng
+AuthSession, đổi hash token, ghi history và giữ hạn phiên gốc 168 giờ. Replay thu
+hồi đúng phiên; sai secret không đổi trạng thái. Kết quả bị từ chối được trả về
+dưới dạng `RefreshResult.Rejected` để transaction thu hồi commit trước khi tầng
+gọi chuyển thành lỗi HTTP. Controller refresh/logout xử lý
+validation JSON và bảo mật cho các POST công khai.
 
 ## Migration và seed
 

@@ -4,6 +4,8 @@ import com.omniplay.common.error.ApiException;
 import com.omniplay.common.error.ErrorCode;
 import com.omniplay.dto.request.RegisterRequest;
 import com.omniplay.dto.request.LoginRequest;
+import com.omniplay.dto.request.RefreshRequest;
+import com.omniplay.dto.request.LogoutRequest;
 import com.omniplay.dto.response.TokenPairResponse;
 import com.omniplay.dto.response.RegisteredUserResponse;
 import com.omniplay.user.User;
@@ -26,10 +28,13 @@ public class AuthService {
     private final AuthSessionRepository sessions;
     private final RefreshTokenFactory refreshTokens;
     private final AccessTokenService accessTokens;
+    private final RefreshRotationService rotation;
+    private final LogoutService logout;
     private final String dummyPasswordHash;
 
     public AuthService(UserRepository users, AuthInputValidator validator, PasswordEncoder passwords, Clock clock,
-            AuthSessionRepository sessions, RefreshTokenFactory refreshTokens, AccessTokenService accessTokens) {
+            AuthSessionRepository sessions, RefreshTokenFactory refreshTokens, AccessTokenService accessTokens,
+            RefreshRotationService rotation, LogoutService logout) {
         this.users = users;
         this.validator = validator;
         this.passwords = passwords;
@@ -37,6 +42,8 @@ public class AuthService {
         this.sessions = sessions;
         this.refreshTokens = refreshTokens;
         this.accessTokens = accessTokens;
+        this.rotation = rotation;
+        this.logout = logout;
         this.dummyPasswordHash = passwords.encode(UUID.randomUUID().toString());
     }
 
@@ -75,5 +82,18 @@ public class AuthService {
         sessions.saveAndFlush(session);
         String access = accessTokens.issue(user.getUserId(), sessionId, createdAt);
         return new TokenPairResponse(access, refresh.value(), "Bearer", 900, session.getExpiresAt());
+    }
+
+    public TokenPairResponse refresh(RefreshRequest request) {
+        String token = validator.requireRefreshToken(request.refreshToken());
+        // Rotation owns its transaction. Its proxy commits replay revocation before we raise an HTTP error.
+        return switch (rotation.rotate(token)) {
+            case RefreshResult.Success success -> success.tokenPair();
+            case RefreshResult.Rejected rejected -> throw new ApiException(rejected.code());
+        };
+    }
+
+    public void logout(LogoutRequest request) {
+        logout.logout(validator.requireRefreshToken(request.refreshToken()));
     }
 }

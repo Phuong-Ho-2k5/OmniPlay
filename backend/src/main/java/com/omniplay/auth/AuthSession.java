@@ -55,4 +55,13 @@ public class AuthSession {
     public Instant getExpiresAt() { return expiresAt; }
     public Instant getRotatedAt() { return rotatedAt; }
     public Instant getRevokedAt() { return revokedAt; }
+
+    public void rotate(String tokenHash, Instant now) {
+        currentTokenHash = tokenHash;
+        rotatedAt = now.truncatedTo(ChronoUnit.MICROS);
+    }
+
+    public void revoke(Instant now) {
+        if (revokedAt == null) revokedAt = now.truncatedTo(ChronoUnit.MICROS);
+    }
 }

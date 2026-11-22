@@ -1,36 +1,26 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show IOException;
 
-import 'package:http/http.dart' as http;
-
+import '../../features/auth/data/auth_session_controller.dart';
+import '../../features/auth/data/refresh_coordinator.dart';
+import '../../features/auth/data/session_store.dart';
 import 'api_exception.dart';
+import 'api_transport.dart';
 
 class ApiClient {
   ApiClient({
-    required this._client,
-    required this._baseUri,
-    this._timeout = const Duration(seconds: 10),
-    this._accessTokenProvider,
+    required this._transport,
+    required this._sessions,
+    required this._refresh,
   });
-
-  final http.Client _client;
-  final Uri _baseUri;
-  final Duration _timeout;
-  final String? Function()? _accessTokenProvider;
-
-  Future<Map<String, dynamic>> postJson(
-    String path, {
-    required Map<String, dynamic> body,
-    required int expectedStatusCode,
-    bool authenticated = false,
-  }) => _request(
-    'POST',
-    path,
-    body: body,
-    expectedStatusCode: expectedStatusCode,
-    authenticated: authenticated,
-  );
+  final ApiTransport _transport;
+  final AuthSessionController _sessions;
+  final RefreshCoordinator _refresh;
+  static const _authPaths = {
+    '/auth/register',
+    '/auth/login',
+    '/auth/refresh',
+    '/auth/logout',
+  };
 
   Future<Map<String, dynamic>> getJson(
     String path, {
@@ -43,104 +33,92 @@ class ApiClient {
     authenticated: authenticated,
   );
 
+  Future<Map<String, dynamic>> postJson(
+    String path, {
+    required Map<String, dynamic> body,
+    required int expectedStatusCode,
+    bool authenticated = true,
+  }) => _request(
+    'POST',
+    path,
+    encodedBody: jsonEncode(body),
+    expectedStatusCode: expectedStatusCode,
+    authenticated: authenticated,
+  );
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
-    Map<String, dynamic>? body,
+    String? encodedBody,
     int? expectedStatusCode,
     required bool authenticated,
   }) async {
-    final relative = Uri.parse(path);
-    if (!path.startsWith('/') || relative.hasAuthority || relative.hasScheme) {
-      throw ArgumentError(
-        'API path must be relative to the configured server root.',
+    final publicPath = Uri.parse(path).path;
+    if (!authenticated ||
+        _authPaths.contains(publicPath) ||
+        (method == 'GET' && publicPath == '/actuator/health')) {
+      return _transport.sendJson(
+        method,
+        path,
+        encodedBody: encodedBody,
+        expectedStatusCode: expectedStatusCode,
       );
     }
-    final http.Response response;
-    // Signal the transport before returning a timeout to a caller that may retry.
-    final abort = Completer<void>.sync();
-    final request = http.AbortableRequest(
-      method,
-      _baseUri.resolveUri(relative),
-      abortTrigger: abort.future,
-    )..headers['Accept'] = 'application/json';
-    if (body != null) {
-      request.headers['Content-Type'] = 'application/json; charset=utf-8';
-      request.bodyBytes = utf8.encode(jsonEncode(body));
-    }
-    if (authenticated) {
-      final token = _accessTokenProvider?.call();
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+    final pair = _sessions.tokens;
+    if (pair == null) throw const SessionChangedException();
+    final generation = _sessions.generation, revision = _sessions.revision;
+    try {
+      final result = await _transport.sendJson(
+        method,
+        path,
+        encodedBody: encodedBody,
+        expectedStatusCode: expectedStatusCode,
+        accessToken: pair.accessToken,
+      );
+      if (!_sessions.isCurrent(generation)) {
+        throw const SessionChangedException();
       }
-    }
-    try {
-      response =
-          await (() async => http.Response.fromStream(
-            await _client.send(request),
-          ))().timeout(
-            _timeout,
-            onTimeout: () {
-              abort.complete();
-              throw TimeoutException('Request timed out.');
-            },
-          );
-    } on TimeoutException {
-      throw const ApiException(
-        kind: ApiFailureKind.timeout,
-        code: 'REQUEST_TIMEOUT',
-        message: 'Request timed out.',
-      );
-    } on http.ClientException {
-      throw const ApiException(
-        kind: ApiFailureKind.network,
-        code: 'NETWORK_ERROR',
-        message: 'Unable to connect.',
-      );
-    } on IOException {
-      throw const ApiException(
-        kind: ApiFailureKind.network,
-        code: 'NETWORK_ERROR',
-        message: 'Unable to connect.',
-      );
-    }
-
-    Map<String, dynamic>? data;
-    try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (decoded is Map<String, dynamic>) data = decoded;
-    } on FormatException {
-      // An HTTP failure can be HTML or an empty response from a gateway.
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final fields = <String, String>{};
-      final rawFields = data?['fieldErrors'];
-      if (rawFields is Map) {
-        for (final entry in rawFields.entries) {
-          if (entry.key is String && entry.value is String) {
-            fields[entry.key as String] = entry.value as String;
-          }
+      return result;
+    } on ApiException catch (error) {
+      if (!_sessions.isCurrent(generation)) {
+        throw const SessionChangedException();
+      }
+      if (error.statusCode != 401 || error.code != 'ACCESS_TOKEN_EXPIRED') {
+        if (error.statusCode == 401 &&
+            _sessions.isCurrent(generation, revision)) {
+          await _sessions.clear(notice: 'Vui lòng đăng nhập lại để tiếp tục.');
         }
+        rethrow;
       }
-      throw ApiException(
-        kind: ApiFailureKind.http,
-        statusCode: response.statusCode,
-        code: data?['code'] is String ? data!['code'] as String : 'HTTP_ERROR',
-        message: data?['message'] is String
-            ? data!['message'] as String
-            : 'Server could not process the request.',
-        fieldErrors: Map.unmodifiable(fields),
-      );
     }
-    if (data == null ||
-        (expectedStatusCode != null &&
-            response.statusCode != expectedStatusCode)) {
-      throw const ApiException(
-        kind: ApiFailureKind.invalidResponse,
-        code: 'INVALID_RESPONSE',
-        message: 'Invalid server response.',
-      );
+    await _refresh.refreshFor(generation: generation, revision: revision);
+    if (!_sessions.isCurrent(generation) || _sessions.tokens == null) {
+      throw const SessionChangedException();
     }
-    return data;
+    final retriedRevision = _sessions.revision;
+    try {
+      final result = await _transport.sendJson(
+        method,
+        path,
+        encodedBody: encodedBody,
+        expectedStatusCode: expectedStatusCode,
+        accessToken: _sessions.tokens!.accessToken,
+      );
+      if (!_sessions.isCurrent(generation)) {
+        throw const SessionChangedException();
+      }
+      return result;
+    } on ApiException catch (error) {
+      if (!_sessions.isCurrent(generation)) {
+        throw const SessionChangedException();
+      }
+      if (error.statusCode == 401 &&
+          _sessions.isCurrent(generation, retriedRevision)) {
+        await _sessions.clear(
+          notice: 'Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại.',
+        );
+      }
+      rethrow;
+    }
   }
 }

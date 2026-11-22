@@ -6,11 +6,13 @@ OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, h�
 
 - Đăng ký tài khoản với validation, chuẩn hóa email và mật khẩu BCrypt.
 - Đăng nhập, cấp JWT và refresh token, lưu AuthSession trong PostgreSQL.
+- Refresh rotation, phát hiện dùng lại token cũ và đăng xuất theo từng phiên.
 - Xác thực Bearer token, chuẩn hóa lỗi API và cung cấp health endpoint.
-- Biểu mẫu Flutter theo MVVM, hiển thị lỗi theo trường và giữ token trong RAM.
+- Biểu mẫu Flutter theo MVVM, hiển thị lỗi theo trường và lưu cặp token bằng secure storage.
+- Khôi phục phiên khi mở app, điều phối refresh chung và xóa phiên local khi đăng xuất offline.
 - Schema PostgreSQL, migration Flyway, danh mục tham chiếu và dữ liệu demo.
 
-Sau đăng nhập, ứng dụng mở màn kết nối dịch vụ. Các API nội dung, refresh/logout và lưu phiên lâu dài chưa được triển khai.
+Sau đăng nhập, ứng dụng mở màn kết nối dịch vụ. Các API nội dung và player/progress chưa được triển khai.
 
 ## Công nghệ
 
