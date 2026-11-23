@@ -12,6 +12,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy tài nguyên."),
+    CONTENT_UNAVAILABLE(HttpStatus.NOT_FOUND, "Nội dung không tồn tại hoặc đã ngừng phục vụ."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Máy chủ gặp lỗi xử lý."),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ tạm thời chưa sẵn sàng.");
 

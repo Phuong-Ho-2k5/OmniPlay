@@ -2,7 +2,7 @@
 
 Backend Java 21 / Spring Boot 4.1.1, sử dụng Spring MVC, Spring Security, Spring Data JPA, PostgreSQL và Flyway.
 
-Backend hỗ trợ đăng ký, đăng nhập, refresh rotation, đăng xuất và xác thực JWT. GET health cùng POST đăng ký/đăng nhập/refresh/logout truy cập công khai. Các API nội dung chưa được triển khai.
+Backend hỗ trợ đăng ký, đăng nhập, refresh rotation, đăng xuất, JWT và danh mục/tìm kiếm nội dung. GET health cùng POST đăng ký/đăng nhập/refresh/logout truy cập công khai. Các API danh mục và ảnh bìa yêu cầu Bearer token.
 
 ## Yêu cầu
 
@@ -134,6 +134,22 @@ dưới dạng `RefreshResult.Rejected` để transaction thu hồi commit trư�
 gọi chuyển thành lỗi HTTP. Controller refresh/logout xử lý
 validation JSON và bảo mật cho các POST công khai.
 
+## API
+
+| Method | Endpoint | Chức năng |
+| --- | --- | --- |
+| GET | `/catalog` | Danh mục VIDEO, MUSIC, PODCAST, POST; lọc type và phân trang |
+| GET | `/catalog/search` | Tìm title bằng q, lọc type/genreId theo AND |
+| GET | `/catalog/{id}?type=...` | Chi tiết metadata hoặc văn bản Post |
+| GET | `/genres` | Danh sách thể loại |
+| GET | `/media/{id}/thumbnail` | Ảnh JPEG/PNG/WebP có JWT |
+
+Danh sách trả `{items,page,size,totalElements}`, page từ 0, size mặc định 20 và tối đa 50. Nội dung phải đang khả dụng; saved lấy theo user trong JWT. Thể loại chỉ áp dụng cho media; POST kết hợp genreId trả rỗng. Các giá trị tìm kiếm được bind vào SQL; phân trang thực hiện sau khi gộp Media/Post.
+
+Ảnh nằm dưới `MEDIA_ROOT` (mặc định `./media`), trả `Cache-Control: private, no-store`. File phải là ảnh JPEG/PNG/WebP tối đa 10 MiB. Đường dẫn tuyệt đối và đường dẫn/symlink ra ngoài media root bị từ chối. Ảnh thiếu trả CONTENT_UNAVAILABLE; API không công khai đường dẫn vật lý. Tạo ảnh demo bằng script chuẩn bị media như bên dưới.
+
+Xem [contract danh mục](../docs/api/catalog-contract.md). Chưa có playback/stream/Range hoặc API ghi trạng thái lưu. Ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
+
 ## Migration và seed
 
 | Phiên bản | Nội dung |
@@ -183,6 +199,7 @@ Maven đã cấu hình timezone UTC cho `spring-boot:run`. Trên macOS/Linux, d�
 ```text
 src/main/java/com/omniplay/auth/       Xác thực, phiên và token
 src/main/java/com/omniplay/user/       Entity và repository tài khoản
+src/main/java/com/omniplay/catalog/    Danh mục, tìm kiếm, chi tiết và ảnh bìa
 src/main/java/com/omniplay/dto/        Request/response
 src/main/java/com/omniplay/config/     Bean và cấu hình bảo mật/JSON
 src/main/java/com/omniplay/common/     Lỗi API dùng chung

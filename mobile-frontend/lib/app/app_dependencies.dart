@@ -13,6 +13,8 @@ import '../features/auth/presentation/login_view_model.dart';
 import '../features/auth/presentation/register_view_model.dart';
 import '../features/connection/data/health_repository.dart';
 import '../features/connection/presentation/connection_view_model.dart';
+import '../features/catalog/data/catalog_repository.dart';
+import '../features/catalog/presentation/catalog_view_model.dart';
 
 class AppDependencies {
   AppDependencies(
@@ -37,6 +39,7 @@ class AppDependencies {
       sessions: sessionStore,
       refresh: refresh,
     );
+    catalogRepository = RemoteCatalogRepository(apiClient);
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -46,12 +49,15 @@ class AppDependencies {
   late final AuthSessionController sessionStore;
   late final ApiClient apiClient;
   late final AuthRepository authRepository;
+  late final CatalogRepository catalogRepository;
   late final ConnectionViewModel connectionViewModel;
 
   LoginViewModel createLoginViewModel() =>
       LoginViewModel(authRepository, sessionStore);
   RegisterViewModel createRegisterViewModel() =>
       RegisterViewModel(authRepository);
+  CatalogViewModel createCatalogViewModel() =>
+      CatalogViewModel(catalogRepository);
 
   void dispose() {
     connectionViewModel.dispose();

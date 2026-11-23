@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/app_dependencies.dart';
 import '../data/auth_session_controller.dart';
 import '../data/secure_token_store.dart';
-import '../../connection/presentation/connection_screen.dart';
+import '../../catalog/presentation/catalog_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -59,9 +59,10 @@ class AuthGate extends StatelessWidget {
                 createViewModel: dependencies.createRegisterViewModel,
               ),
             )
-          : ConnectionScreen(
-              viewModel: dependencies.connectionViewModel,
-              notice: 'Đã đăng nhập',
+          : CatalogSession(
+              key: ValueKey(sessions.generation),
+              repository: dependencies.catalogRepository,
+              createViewModel: dependencies.createCatalogViewModel,
               onLogout: () => unawaited(sessions.logout()),
             );
     },

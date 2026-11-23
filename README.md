@@ -11,8 +11,10 @@ OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, h�
 - Biểu mẫu Flutter theo MVVM, hiển thị lỗi theo trường và lưu cặp token bằng secure storage.
 - Khôi phục phiên khi mở app, điều phối refresh chung và xóa phiên local khi đăng xuất offline.
 - Schema PostgreSQL, migration Flyway, danh mục tham chiếu và dữ liệu demo.
+- Danh mục bốn loại nội dung, tìm tiêu đề, lọc loại/thể loại, phân trang và chi tiết có xác thực.
+- Màn Khám phá Flutter, đọc chi tiết Post, ảnh bìa có JWT và xử lý rỗng/lỗi/tải thêm.
 
-Sau đăng nhập, ứng dụng mở màn kết nối dịch vụ. Các API nội dung và player/progress chưa được triển khai.
+Sau đăng nhập, ứng dụng mở Khám phá. Chi tiết media hiện hiển thị metadata; player, stream/progress và thao tác lưu nội dung thuộc các ngày tiếp theo. Phần ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
 
 ## Công nghệ
 
@@ -65,7 +67,7 @@ File media được tạo bằng `backend/scripts/prepare_demo_media.py` và kh�
 - Bản Android debug hỗ trợ HTTP local; môi trường demo yêu cầu HTTPS.
 - Flyway quản lý schema, Hibernate dùng `ddl-auto: validate`.
 
-Xem [kiến trúc](docs/architecture.md) và [hợp đồng API xác thực](docs/api/auth-contract.md).
+Xem [kiến trúc](docs/architecture.md), [hợp đồng API xác thực](docs/api/auth-contract.md) và [API danh mục](docs/api/catalog-contract.md).
 
 
 

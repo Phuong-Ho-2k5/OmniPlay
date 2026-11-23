@@ -1,6 +1,6 @@
 # OmniPlay Android
 
-Ứng dụng Flutter theo MVVM với đăng ký, đăng nhập và màn kết nối dịch vụ. Luồng dữ liệu: View → ViewModel → Repository → ApiClient. ViewModel dùng ChangeNotifier, dependency được truyền qua constructor.
+Ứng dụng Flutter theo MVVM với đăng ký, đăng nhập, Khám phá, tìm kiếm và chi tiết nội dung. Luồng dữ liệu: View → ViewModel → Repository → ApiClient. ViewModel dùng ChangeNotifier, dependency được truyền qua constructor.
 
 ## Môi trường
 
@@ -48,7 +48,7 @@ URL không chứa `/api`, query, fragment hoặc thông tin đăng nhập. Khôn
 ## Luồng tài khoản
 
 App đọc phiên trong vùng lưu trữ bảo mật trước khi chọn màn hình. Phiên còn hạn
-refresh được khôi phục vào màn kết nối; phiên thiếu/hỏng/hết hạn trở về Login.
+refresh được khôi phục vào Khám phá; phiên thiếu/hỏng/hết hạn trở về Login.
 Tạo tài khoản thành công quay lại Login, điền email chuẩn hóa và xóa password.
 Đăng nhập chỉ được xác nhận sau khi thao tác lưu cả cặp token hoàn tất.
 
@@ -87,6 +87,14 @@ Health là API công khai nên không minh chứng refresh của request đượ
 luồng đó cần kiểm tra với catalog thật khi API/màn nội dung được triển khai.
 Player/progress chưa có để nối dừng phát/lưu tiến độ vào logout.
 
+## Khám phá và chi tiết
+
+Màn Khám phá tải bốn loại nội dung, tìm tiêu đề với debounce 300 ms, lọc loại/thể loại và phân trang bằng Tải thêm. Đổi điều kiện tải lại từ trang đầu. Kết quả rỗng, lỗi kết nối, lỗi thể loại và lỗi tải trang sau có thông báo/thao tác riêng. Bộ lọc thể loại với Post trả rỗng theo contract.
+
+Mỗi thẻ mở chi tiết bằng cả ID và type. Post hiển thị văn bản đầy đủ, media hiển thị metadata. Ảnh tải bằng Bearer token qua cùng ApiClient/refresh như JSON; ảnh lỗi dùng hình thay thế. saved chỉ là chỉ báo đọc từ backend, chưa có nút ghi trạng thái lưu hoặc player.
+
+Mỗi phiên có Navigator riêng; logout hoặc đổi tài khoản loại toàn bộ stack chi tiết và state cũ. ViewModel bỏ completion sau dispose hoặc sau khi bộ lọc đã đổi. Xem [contract danh mục](../docs/api/catalog-contract.md). Ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
+
 ## Kiểm tra mã nguồn
 
 ```powershell
@@ -114,6 +122,7 @@ lib/features/auth/data/        AuthRepository và session store
 lib/features/auth/models/      RegisteredUser và TokenPair
 lib/features/auth/presentation/ State, validator, ViewModel, biểu mẫu và AuthGate
 lib/features/connection/       Repository, ViewModel và màn kết nối
+lib/features/catalog/          Model, repository, Khám phá và chi tiết nội dung
 ```
 
 AppDependencies sở hữu HTTP client, raw transport, AuthRepository, session

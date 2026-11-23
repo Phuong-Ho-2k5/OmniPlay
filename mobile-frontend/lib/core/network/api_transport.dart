@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show IOException;
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -46,21 +47,34 @@ class ApiTransport {
     String? encodedBody,
     int? expectedStatusCode,
     String? accessToken,
-  }) async => (await _request(
-    method,
-    path,
-    encodedBody: encodedBody,
-    expectedStatusCode: expectedStatusCode,
-    accessToken: accessToken,
-  ))!;
+  }) async =>
+      (await _request(
+            method,
+            path,
+            encodedBody: encodedBody,
+            expectedStatusCode: expectedStatusCode,
+            accessToken: accessToken,
+          ))!
+          as Map<String, dynamic>;
 
-  Future<Map<String, dynamic>?> _request(
+  Future<Uint8List> getBytes(String path, {String? accessToken}) async =>
+      (await _request(
+            'GET',
+            path,
+            accessToken: accessToken,
+            bytes: true,
+            expectedStatusCode: 200,
+          ))!
+          as Uint8List;
+
+  Future<Object?> _request(
     String method,
     String path, {
     String? encodedBody,
     int? expectedStatusCode,
     String? accessToken,
     bool noContent = false,
+    bool bytes = false,
   }) async {
     final relative = Uri.parse(path);
     if (!path.startsWith('/') || relative.hasAuthority || relative.hasScheme) {
@@ -69,11 +83,15 @@ class ApiTransport {
       );
     }
     final abort = Completer<void>.sync();
-    final request = http.AbortableRequest(
-      method,
-      _baseUri.resolveUri(relative),
-      abortTrigger: abort.future,
-    )..headers['Accept'] = 'application/json';
+    final request =
+        http.AbortableRequest(
+            method,
+            _baseUri.resolveUri(relative),
+            abortTrigger: abort.future,
+          )
+          ..headers['Accept'] = bytes
+              ? 'image/jpeg, image/png, image/webp, application/json'
+              : 'application/json';
     if (encodedBody != null) {
       request.headers['Content-Type'] = 'application/json; charset=utf-8';
       request.bodyBytes = utf8.encode(encodedBody);
@@ -113,11 +131,13 @@ class ApiTransport {
       );
     }
     Map<String, dynamic>? data;
-    try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (decoded is Map<String, dynamic>) data = decoded;
-    } on FormatException {
-      /* Preserve HTTP failures even when a gateway returns HTML. */
+    if (!bytes || response.statusCode >= 400) {
+      try {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic>) data = decoded;
+      } on FormatException {
+        /* Preserve HTTP failures even when a gateway returns HTML. */
+      }
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final fields = <String, String>{};
@@ -141,13 +161,24 @@ class ApiTransport {
     }
     if ((expectedStatusCode != null &&
             response.statusCode != expectedStatusCode) ||
-        (noContent ? response.bodyBytes.isNotEmpty : data == null)) {
+        (noContent
+            ? response.bodyBytes.isNotEmpty
+            : bytes
+            ? response.bodyBytes.isEmpty ||
+                  !const {'image/jpeg', 'image/png', 'image/webp'}.contains(
+                    response.headers['content-type']
+                        ?.split(';')
+                        .first
+                        .trim()
+                        .toLowerCase(),
+                  )
+            : data == null)) {
       throw const ApiException(
         kind: ApiFailureKind.invalidResponse,
         code: 'INVALID_RESPONSE',
         message: 'Invalid server response.',
       );
     }
-    return data;
+    return bytes ? response.bodyBytes : data;
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../features/auth/data/auth_session_controller.dart';
 import '../../features/auth/data/refresh_coordinator.dart';
@@ -52,29 +53,43 @@ class ApiClient {
     String? encodedBody,
     int? expectedStatusCode,
     required bool authenticated,
+  }) => _authenticated<Map<String, dynamic>>(
+    method,
+    path,
+    authenticated: authenticated,
+    send: (token) => _transport.sendJson(
+      method,
+      path,
+      encodedBody: encodedBody,
+      expectedStatusCode: expectedStatusCode,
+      accessToken: token,
+    ),
+  );
+
+  Future<Uint8List> getBytes(String path) => _authenticated<Uint8List>(
+    'GET',
+    path,
+    authenticated: true,
+    send: (token) => _transport.getBytes(path, accessToken: token),
+  );
+
+  Future<T> _authenticated<T>(
+    String method,
+    String path, {
+    required bool authenticated,
+    required Future<T> Function(String? token) send,
   }) async {
     final publicPath = Uri.parse(path).path;
     if (!authenticated ||
         _authPaths.contains(publicPath) ||
         (method == 'GET' && publicPath == '/actuator/health')) {
-      return _transport.sendJson(
-        method,
-        path,
-        encodedBody: encodedBody,
-        expectedStatusCode: expectedStatusCode,
-      );
+      return send(null);
     }
     final pair = _sessions.tokens;
     if (pair == null) throw const SessionChangedException();
     final generation = _sessions.generation, revision = _sessions.revision;
     try {
-      final result = await _transport.sendJson(
-        method,
-        path,
-        encodedBody: encodedBody,
-        expectedStatusCode: expectedStatusCode,
-        accessToken: pair.accessToken,
-      );
+      final result = await send(pair.accessToken);
       if (!_sessions.isCurrent(generation)) {
         throw const SessionChangedException();
       }
@@ -97,13 +112,7 @@ class ApiClient {
     }
     final retriedRevision = _sessions.revision;
     try {
-      final result = await _transport.sendJson(
-        method,
-        path,
-        encodedBody: encodedBody,
-        expectedStatusCode: expectedStatusCode,
-        accessToken: _sessions.tokens!.accessToken,
-      );
+      final result = await send(_sessions.tokens!.accessToken);
       if (!_sessions.isCurrent(generation)) {
         throw const SessionChangedException();
       }
