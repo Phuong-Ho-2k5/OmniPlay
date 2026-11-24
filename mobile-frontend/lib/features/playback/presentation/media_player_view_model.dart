@@ -56,7 +56,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
     try {
       final metadata = await repository.fetchMetadata(mediaId);
       if (_disposed || seq != _sequence) return;
-      final resume = startAt ??
+      final resume =
+          startAt ??
           Duration(
             milliseconds: (metadata.resumePositionSeconds * 1000).round(),
           );
@@ -352,7 +353,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
   void _handleApiError(ApiException error) {
     final unavailable =
-        error.code == 'MEDIA_UNAVAILABLE' || error.code == 'CONTENT_UNAVAILABLE';
+        error.code == 'MEDIA_UNAVAILABLE' ||
+        error.code == 'CONTENT_UNAVAILABLE';
     final fileMissing = error.code == 'MEDIA_FILE_MISSING';
     _setState(
       _state.copyWith(

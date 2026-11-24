@@ -9,11 +9,10 @@ import 'catalog_view_model.dart';
 import 'content_card.dart';
 import 'content_detail_screen.dart';
 
-typedef PlayerViewModelFactory =
-    MediaPlayerViewModel Function({
-      required String mediaId,
-      required ContentType type,
-    });
+typedef PlayerViewModelFactory = MediaPlayerViewModel Function({
+  required String mediaId,
+  required ContentType type,
+});
 
 /// A session owns its entire navigation stack, including detail routes.
 class CatalogSession extends StatefulWidget {

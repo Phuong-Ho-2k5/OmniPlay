@@ -126,7 +126,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                       ],
                       if (widget.createPlayerViewModel != null) ...[
                         MediaPlayerWidget(
-                          key: ValueKey('player:${item.type.apiValue}:${item.id}'),
+                          key: ValueKey(
+                            'player:${item.type.apiValue}:${item.id}',
+                          ),
                           createViewModel: () => widget.createPlayerViewModel!(
                             mediaId: item.id,
                             type: item.type,

@@ -39,7 +39,8 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
       final state = _viewModel.state;
       final theme = Theme.of(context);
       final totalSeconds = state.duration.inMilliseconds / 1000.0;
-      final currentSeconds = _draggingSeconds ??
+      final currentSeconds =
+          _draggingSeconds ??
           (state.position.inMilliseconds / 1000.0).clamp(
             0.0,
             totalSeconds > 0 ? totalSeconds : 0.0,
@@ -66,8 +67,7 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
                       alignment: Alignment.center,
                       children: [
                         VideoPlayer(_viewModel.videoController!),
-                        if (state.buffering)
-                          const CircularProgressIndicator(),
+                        if (state.buffering) const CircularProgressIndicator(),
                       ],
                     ),
                   ),
@@ -147,8 +147,8 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
                                 Text(
                                   _format(
                                     Duration(
-                                      milliseconds:
-                                          (currentSeconds * 1000).round(),
+                                      milliseconds: (currentSeconds * 1000)
+                                          .round(),
                                     ),
                                   ),
                                   style: theme.textTheme.bodySmall,

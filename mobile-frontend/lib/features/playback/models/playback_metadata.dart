@@ -42,7 +42,10 @@ class PlaybackMetadata {
     if (type == null || type == ContentType.post) invalidCatalogResponse();
     final duration = catalogInt(json['durationSeconds'], min: 1);
     final rawResume = json['resumePositionSeconds'];
-    if (rawResume is! num || rawResume.isNaN || rawResume.isInfinite || rawResume < 0) {
+    if (rawResume is! num ||
+        rawResume.isNaN ||
+        rawResume.isInfinite ||
+        rawResume < 0) {
       invalidCatalogResponse();
     }
     final completed = json['completed'];
