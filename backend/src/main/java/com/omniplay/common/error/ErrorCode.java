@@ -15,6 +15,9 @@ public enum ErrorCode {
     CONTENT_UNAVAILABLE(HttpStatus.NOT_FOUND, "Nội dung không tồn tại hoặc đã ngừng phục vụ."),
     MEDIA_UNAVAILABLE(HttpStatus.NOT_FOUND, "Nội dung media không tồn tại hoặc đã ngừng phục vụ."),
     MEDIA_FILE_MISSING(HttpStatus.NOT_FOUND, "Không tìm thấy tệp media trên máy chủ."),
+    ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy lượt phát phù hợp."),
+    REQUEST_CONFLICT(HttpStatus.CONFLICT, "Yêu cầu trùng mã nhưng khác dữ liệu ban đầu."),
+    EVENT_CONFLICT(HttpStatus.CONFLICT, "Sự kiện phát trùng số thứ tự nhưng khác nội dung."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Máy chủ gặp lỗi xử lý."),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ tạm thời chưa sẵn sàng.");
 

@@ -4,6 +4,7 @@ import '../../auth/data/refresh_coordinator.dart';
 import '../../auth/data/session_store.dart';
 import '../../catalog/models/catalog_json.dart';
 import '../models/playback_metadata.dart';
+import '../models/playback_report.dart';
 
 abstract class PlaybackRepository {
   Future<PlaybackMetadata> fetchMetadata(String mediaId);
@@ -11,6 +12,15 @@ abstract class PlaybackRepository {
   Future<bool> refreshAccessToken({
     required int generation,
     required int revision,
+  });
+  Future<PlaybackAttempt> createAttempt({
+    required String attemptId,
+    required String mediaId,
+    String? playlistItemId,
+  });
+  Future<PlaybackProgressResult> reportProgress({
+    required String mediaId,
+    required PlaybackReport report,
   });
 }
 
@@ -62,5 +72,39 @@ class RemotePlaybackRepository implements PlaybackRepository {
     if (!_sessions.isCurrent(generation)) return false;
     await _refresh.refreshFor(generation: generation, revision: revision);
     return _sessions.isCurrent(generation) && _sessions.tokens != null;
+  }
+
+  @override
+  Future<PlaybackAttempt> createAttempt({
+    required String attemptId,
+    required String mediaId,
+    String? playlistItemId,
+  }) async {
+    catalogId(attemptId);
+    catalogId(mediaId);
+    if (playlistItemId != null) catalogId(playlistItemId);
+    final json = await _api.postJson(
+      '/me/playback-attempts',
+      body: {
+        'attemptId': attemptId,
+        'mediaId': mediaId,
+        'playlistItemId': playlistItemId,
+      },
+    );
+    return PlaybackAttempt.fromJson(json);
+  }
+
+  @override
+  Future<PlaybackProgressResult> reportProgress({
+    required String mediaId,
+    required PlaybackReport report,
+  }) async {
+    catalogId(mediaId);
+    final json = await _api.putJson(
+      '/me/progress/$mediaId',
+      body: report.toJson(),
+      expectedStatusCode: 200,
+    );
+    return PlaybackProgressResult.fromJson(json);
   }
 }
