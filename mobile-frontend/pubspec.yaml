@@ -37,6 +37,8 @@ dependencies:
   http: ^1.6.0
   material_ui: 1.11.1
   flutter_secure_storage: ^11.2.0
+  video_player: ^2.9.2
+  just_audio: ^0.9.42
 
 dev_dependencies:
   flutter_test:

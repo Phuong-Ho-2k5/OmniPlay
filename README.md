@@ -13,8 +13,10 @@ OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, h�
 - Schema PostgreSQL, migration Flyway, danh mục tham chiếu và dữ liệu demo.
 - Danh mục bốn loại nội dung, tìm tiêu đề, lọc loại/thể loại, phân trang và chi tiết có xác thực.
 - Màn Khám phá Flutter, đọc chi tiết Post, ảnh bìa có JWT và xử lý rỗng/lỗi/tải thêm.
+- Playback metadata (`GET /media/{id}/playback`) và stream media có xác thực JWT hỗ trợ HTTP Range (`200`/`206`/`416`).
+- Trình phát cơ bản trong Flutter (`video_player` cho Video, `just_audio` cho Nhạc/Podcast) hỗ trợ Play/Pause/Seek và tự refresh token khi 401.
 
-Sau đăng nhập, ứng dụng mở Khám phá. Chi tiết media hiện hiển thị metadata; player, stream/progress và thao tác lưu nội dung thuộc các ngày tiếp theo. Phần ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
+Sau đăng nhập, ứng dụng mở Khám phá và có thể phát thử Video, Nhạc, Podcast ngay trong màn chi tiết. Báo cáo tiến độ/segment, hai phiên nghe và Đã lưu/Playlist thuộc các ngày tiếp theo.
 
 ## Công nghệ
 

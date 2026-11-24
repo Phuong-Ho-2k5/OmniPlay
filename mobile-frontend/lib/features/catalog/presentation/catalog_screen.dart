@@ -2,11 +2,18 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/presentation/media_player_view_model.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import 'catalog_view_model.dart';
 import 'content_card.dart';
 import 'content_detail_screen.dart';
+
+typedef PlayerViewModelFactory =
+    MediaPlayerViewModel Function({
+      required String mediaId,
+      required ContentType type,
+    });
 
 /// A session owns its entire navigation stack, including detail routes.
 class CatalogSession extends StatefulWidget {
@@ -14,10 +21,12 @@ class CatalogSession extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createViewModel,
+    required this.createPlayerViewModel,
     required this.onLogout,
   });
   final CatalogRepository repository;
   final CatalogViewModel Function() createViewModel;
+  final PlayerViewModelFactory createPlayerViewModel;
   final VoidCallback onLogout;
   @override
   State<CatalogSession> createState() => _CatalogSessionState();
@@ -34,6 +43,7 @@ class _CatalogSessionState extends State<CatalogSession> {
         builder: (_) => CatalogScreen(
           repository: widget.repository,
           createViewModel: widget.createViewModel,
+          createPlayerViewModel: widget.createPlayerViewModel,
           onLogout: widget.onLogout,
         ),
       ),
@@ -46,10 +56,12 @@ class CatalogScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.createViewModel,
+    required this.createPlayerViewModel,
     required this.onLogout,
   });
   final CatalogRepository repository;
   final CatalogViewModel Function() createViewModel;
+  final PlayerViewModelFactory createPlayerViewModel;
   final VoidCallback onLogout;
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -275,6 +287,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 id: item.id,
                                 type: item.type,
                                 genres: state.genres,
+                                createPlayerViewModel:
+                                    widget.createPlayerViewModel,
                               ),
                             ),
                           ),

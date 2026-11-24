@@ -15,6 +15,9 @@ import '../features/connection/data/health_repository.dart';
 import '../features/connection/presentation/connection_view_model.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
+import '../features/playback/data/playback_repository.dart';
+import '../features/playback/presentation/media_player_view_model.dart';
+import '../features/catalog/models/content_type.dart';
 
 class AppDependencies {
   AppDependencies(
@@ -40,6 +43,12 @@ class AppDependencies {
       refresh: refresh,
     );
     catalogRepository = RemoteCatalogRepository(apiClient);
+    playbackRepository = RemotePlaybackRepository(
+      api: apiClient,
+      baseUri: config.apiBaseUri,
+      sessions: sessionStore,
+      refresh: refresh,
+    );
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -50,6 +59,7 @@ class AppDependencies {
   late final ApiClient apiClient;
   late final AuthRepository authRepository;
   late final CatalogRepository catalogRepository;
+  late final PlaybackRepository playbackRepository;
   late final ConnectionViewModel connectionViewModel;
 
   LoginViewModel createLoginViewModel() =>
@@ -58,6 +68,14 @@ class AppDependencies {
       RegisterViewModel(authRepository);
   CatalogViewModel createCatalogViewModel() =>
       CatalogViewModel(catalogRepository);
+  MediaPlayerViewModel createMediaPlayerViewModel({
+    required String mediaId,
+    required ContentType type,
+  }) => MediaPlayerViewModel(
+    repository: playbackRepository,
+    mediaId: mediaId,
+    type: type,
+  );
 
   void dispose() {
     connectionViewModel.dispose();

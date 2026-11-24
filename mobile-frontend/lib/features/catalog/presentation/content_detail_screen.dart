@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/presentation/media_player_view_model.dart';
+import '../../playback/presentation/media_player_widget.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import '../models/genre.dart';
@@ -15,11 +17,17 @@ class ContentDetailScreen extends StatefulWidget {
     required this.id,
     required this.type,
     required this.genres,
+    this.createPlayerViewModel,
   });
   final CatalogRepository repository;
   final String id;
   final ContentType type;
   final List<Genre> genres;
+  final MediaPlayerViewModel Function({
+    required String mediaId,
+    required ContentType type,
+  })?
+  createPlayerViewModel;
   @override
   State<ContentDetailScreen> createState() => _ContentDetailScreenState();
 }
@@ -103,16 +111,29 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (item.type != ContentType.post) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: CatalogThumbnail(
-                          repository: widget.repository,
-                          path: item.thumbnailUrl,
-                          type: item.type,
-                          height: 230,
+                      if (item.type != ContentType.video ||
+                          widget.createPlayerViewModel == null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: CatalogThumbnail(
+                            repository: widget.repository,
+                            path: item.thumbnailUrl,
+                            type: item.type,
+                            height: 230,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 16),
+                      ],
+                      if (widget.createPlayerViewModel != null) ...[
+                        MediaPlayerWidget(
+                          key: ValueKey('player:${item.type.apiValue}:${item.id}'),
+                          createViewModel: () => widget.createPlayerViewModel!(
+                            mediaId: item.id,
+                            type: item.type,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ],
                     Text(
                       item.title,
