@@ -22,6 +22,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
     required this.type,
     DateTime Function()? now,
     PlaybackLifecycleCoordinator? lifecycleCoordinator,
+    this.onBeforeVideoPlay,
   }) : _now = now ?? (() => DateTime.now().toUtc()) {
     _unregisterLifecycle = lifecycleCoordinator?.register(stopAndFlush);
   }
@@ -30,6 +31,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
   final String mediaId;
   final ContentType type;
   final DateTime Function() _now;
+  final Future<void> Function()? onBeforeVideoPlay;
   VoidCallback? _unregisterLifecycle;
 
   static const Duration _reportInterval = Duration(seconds: 15);
@@ -169,6 +171,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
           ),
         );
         if (autoPlay) {
+          await onBeforeVideoPlay?.call();
           unawaited(_ensureAttemptRegistered());
           await controller.play();
         }
@@ -418,6 +421,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
         await c.pause();
         unawaited(_flushProgress(pos));
       } else {
+        await onBeforeVideoPlay?.call();
         unawaited(_ensureAttemptRegistered());
         if (c.value.duration > Duration.zero &&
             c.value.position >= c.value.duration) {

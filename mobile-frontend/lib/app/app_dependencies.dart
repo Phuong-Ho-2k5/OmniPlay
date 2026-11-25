@@ -15,9 +15,11 @@ import '../features/connection/data/health_repository.dart';
 import '../features/connection/presentation/connection_view_model.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
+import '../features/playback/data/listening_session_repository.dart';
 import '../features/playback/data/playback_repository.dart';
 import '../features/playback/presentation/media_player_view_model.dart';
 import '../features/playback/presentation/playback_lifecycle_coordinator.dart';
+import '../features/playback/presentation/player_coordinator.dart';
 import '../features/catalog/models/content_type.dart';
 
 class AppDependencies {
@@ -52,6 +54,7 @@ class AppDependencies {
       sessions: sessionStore,
       refresh: refresh,
     );
+    listeningSessionRepository = RemoteListeningSessionRepository(apiClient);
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -63,6 +66,7 @@ class AppDependencies {
   late final AuthRepository authRepository;
   late final CatalogRepository catalogRepository;
   late final PlaybackRepository playbackRepository;
+  late final ListeningSessionRepository listeningSessionRepository;
   late final PlaybackLifecycleCoordinator playbackLifecycleCoordinator;
   late final ConnectionViewModel connectionViewModel;
 
@@ -72,14 +76,22 @@ class AppDependencies {
       RegisterViewModel(authRepository);
   CatalogViewModel createCatalogViewModel() =>
       CatalogViewModel(catalogRepository);
+  PlayerCoordinator createPlayerCoordinator() => PlayerCoordinator(
+    playbackRepository: playbackRepository,
+    sessionRepository: listeningSessionRepository,
+    catalogRepository: catalogRepository,
+    lifecycleCoordinator: playbackLifecycleCoordinator,
+  );
   MediaPlayerViewModel createMediaPlayerViewModel({
     required String mediaId,
     required ContentType type,
+    Future<void> Function()? onBeforeVideoPlay,
   }) => MediaPlayerViewModel(
     repository: playbackRepository,
     mediaId: mediaId,
     type: type,
     lifecycleCoordinator: playbackLifecycleCoordinator,
+    onBeforeVideoPlay: onBeforeVideoPlay,
   );
 
   void dispose() {

@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/models/listening_session.dart';
+import '../../playback/presentation/coordinated_audio_player_widget.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/media_player_widget.dart';
+import '../../playback/presentation/player_coordinator.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import '../models/genre.dart';
@@ -18,6 +21,7 @@ class ContentDetailScreen extends StatefulWidget {
     required this.type,
     required this.genres,
     this.createPlayerViewModel,
+    this.playerCoordinator,
   });
   final CatalogRepository repository;
   final String id;
@@ -26,8 +30,10 @@ class ContentDetailScreen extends StatefulWidget {
   final MediaPlayerViewModel Function({
     required String mediaId,
     required ContentType type,
+    Future<void> Function()? onBeforeVideoPlay,
   })?
   createPlayerViewModel;
+  final PlayerCoordinator? playerCoordinator;
   @override
   State<ContentDetailScreen> createState() => _ContentDetailScreenState();
 }
@@ -141,7 +147,21 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (widget.createPlayerViewModel != null) ...[
+                        if (item.type != ContentType.video &&
+                            widget.playerCoordinator != null) ...[
+                          CoordinatedAudioPlayerWidget(
+                            key: ValueKey(
+                              'audio:${item.type.apiValue}:${item.id}',
+                            ),
+                            coordinator: widget.playerCoordinator!,
+                            mediaId: item.id,
+                            sessionType: ListeningSessionType.fromContentType(
+                              item.type,
+                            )!,
+                            title: item.title,
+                          ),
+                          const SizedBox(height: 20),
+                        ] else if (widget.createPlayerViewModel != null) ...[
                           MediaPlayerWidget(
                             key: ValueKey(
                               'player:${item.type.apiValue}:${item.id}',
@@ -150,6 +170,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                                 widget.createPlayerViewModel!(
                                   mediaId: item.id,
                                   type: item.type,
+                                  onBeforeVideoPlay: widget
+                                      .playerCoordinator
+                                      ?.notifyVideoStarted,
                                 ),
                             onViewModelChanged: (vm) => _activePlayer = vm,
                           ),

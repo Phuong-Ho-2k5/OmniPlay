@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../../playback/presentation/media_player_view_model.dart';
+import '../../playback/presentation/mini_player_bar.dart';
+import '../../playback/presentation/player_coordinator.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import 'catalog_view_model.dart';
@@ -12,20 +14,23 @@ import 'content_detail_screen.dart';
 typedef PlayerViewModelFactory = MediaPlayerViewModel Function({
   required String mediaId,
   required ContentType type,
+  Future<void> Function()? onBeforeVideoPlay,
 });
 
-/// A session owns its entire navigation stack, including detail routes.
+/// A session owns its entire navigation stack, including detail routes and mini player.
 class CatalogSession extends StatefulWidget {
   const CatalogSession({
     super.key,
     required this.repository,
     required this.createViewModel,
     required this.createPlayerViewModel,
+    required this.createPlayerCoordinator,
     required this.onLogout,
   });
   final CatalogRepository repository;
   final CatalogViewModel Function() createViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
+  final PlayerCoordinator Function() createPlayerCoordinator;
   final VoidCallback onLogout;
   @override
   State<CatalogSession> createState() => _CatalogSessionState();
@@ -33,19 +38,56 @@ class CatalogSession extends StatefulWidget {
 
 class _CatalogSessionState extends State<CatalogSession> {
   final _navigator = GlobalKey<NavigatorState>();
+  late final PlayerCoordinator _coordinator;
+
+  @override
+  void initState() {
+    super.initState();
+    _coordinator = widget.createPlayerCoordinator();
+    unawaited(_coordinator.restoreSessions());
+  }
+
+  @override
+  void dispose() {
+    _coordinator.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => NavigatorPopHandler<void>(
     onPopWithResult: (_) => _navigator.currentState!.pop(),
-    child: Navigator(
-      key: _navigator,
-      onGenerateRoute: (_) => MaterialPageRoute<void>(
-        builder: (_) => CatalogScreen(
-          repository: widget.repository,
-          createViewModel: widget.createViewModel,
-          createPlayerViewModel: widget.createPlayerViewModel,
-          onLogout: widget.onLogout,
+    child: Column(
+      children: [
+        Expanded(
+          child: Navigator(
+            key: _navigator,
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (_) => CatalogScreen(
+                repository: widget.repository,
+                createViewModel: widget.createViewModel,
+                createPlayerViewModel: widget.createPlayerViewModel,
+                playerCoordinator: _coordinator,
+                onLogout: widget.onLogout,
+              ),
+            ),
+          ),
         ),
-      ),
+        MiniPlayerBar(
+          coordinator: _coordinator,
+          onOpenDetail: (mediaId, sessionType) => _navigator.currentState?.push(
+            MaterialPageRoute<void>(
+              builder: (_) => ContentDetailScreen(
+                repository: widget.repository,
+                id: mediaId,
+                type: sessionType.contentType,
+                genres: const [],
+                createPlayerViewModel: widget.createPlayerViewModel,
+                playerCoordinator: _coordinator,
+              ),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -56,11 +98,13 @@ class CatalogScreen extends StatefulWidget {
     required this.repository,
     required this.createViewModel,
     required this.createPlayerViewModel,
+    required this.playerCoordinator,
     required this.onLogout,
   });
   final CatalogRepository repository;
   final CatalogViewModel Function() createViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
+  final PlayerCoordinator playerCoordinator;
   final VoidCallback onLogout;
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -288,6 +332,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 genres: state.genres,
                                 createPlayerViewModel:
                                     widget.createPlayerViewModel,
+                                playerCoordinator: widget.playerCoordinator,
                               ),
                             ),
                           ),
