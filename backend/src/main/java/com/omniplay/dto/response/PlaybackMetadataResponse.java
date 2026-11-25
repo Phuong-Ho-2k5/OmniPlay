@@ -9,5 +9,6 @@ public record PlaybackMetadataResponse(
         ContentType type,
         int durationSeconds,
         BigDecimal resumePositionSeconds,
+        BigDecimal coveredSeconds,
         boolean completed,
         String streamPath) {}

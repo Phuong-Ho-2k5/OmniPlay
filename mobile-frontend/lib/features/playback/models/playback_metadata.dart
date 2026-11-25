@@ -18,6 +18,7 @@ class PlaybackMetadata {
     required this.type,
     required this.durationSeconds,
     required this.resumePositionSeconds,
+    required this.coveredSeconds,
     required this.completed,
     required this.streamPath,
   });
@@ -26,6 +27,7 @@ class PlaybackMetadata {
   final ContentType type;
   final int durationSeconds;
   final double resumePositionSeconds;
+  final double coveredSeconds;
   final bool completed;
   final String streamPath;
 
@@ -48,6 +50,18 @@ class PlaybackMetadata {
         rawResume < 0) {
       invalidCatalogResponse();
     }
+    final rawCovered = json['coveredSeconds'];
+    final double covered;
+    if (rawCovered == null) {
+      covered = 0;
+    } else if (rawCovered is num &&
+        !rawCovered.isNaN &&
+        !rawCovered.isInfinite &&
+        rawCovered >= 0) {
+      covered = rawCovered.toDouble();
+    } else {
+      invalidCatalogResponse();
+    }
     final completed = json['completed'];
     if (completed is! bool) invalidCatalogResponse();
     final rawPath = json['streamPath'];
@@ -58,6 +72,7 @@ class PlaybackMetadata {
       type: type,
       durationSeconds: duration,
       resumePositionSeconds: rawResume.toDouble(),
+      coveredSeconds: covered,
       completed: completed,
       streamPath: streamPath,
     );

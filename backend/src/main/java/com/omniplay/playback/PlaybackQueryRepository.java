@@ -21,6 +21,7 @@ public class PlaybackQueryRepository {
         String sql = """
                 SELECT m.media_id, m.media_type::text AS type, m.duration_seconds,
                        COALESCE(pp.resume_position_seconds, 0) AS resume_position_seconds,
+                       COALESCE(pp.covered_seconds, 0) AS covered_seconds,
                        COALESCE(pp.completed, FALSE) AS completed
                 FROM media m
                 LEFT JOIN playback_progress pp
@@ -30,14 +31,22 @@ public class PlaybackQueryRepository {
         return jdbc.query(sql, Map.of("userId", userId, "mediaId", mediaId), (rs, rowNum) -> {
             UUID id = rs.getObject("media_id", UUID.class);
             BigDecimal resume = rs.getBigDecimal("resume_position_seconds");
+            BigDecimal covered = rs.getBigDecimal("covered_seconds");
             return new PlaybackMetadataResponse(
                     id,
                     ContentType.valueOf(rs.getString("type")),
                     rs.getInt("duration_seconds"),
-                    resume == null ? BigDecimal.ZERO : resume.stripTrailingZeros(),
+                    normalize(resume),
+                    normalize(covered),
                     rs.getBoolean("completed"),
                     "/media/" + id + "/stream");
         }).stream().findFirst();
+    }
+
+    private static BigDecimal normalize(BigDecimal value) {
+        if (value == null) return BigDecimal.ZERO;
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
     }
 
     public Optional<AvailableMediaFile> findAvailableMediaFile(UUID mediaId) {

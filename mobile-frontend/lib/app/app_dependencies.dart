@@ -17,6 +17,7 @@ import '../features/catalog/data/catalog_repository.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
 import '../features/playback/data/playback_repository.dart';
 import '../features/playback/presentation/media_player_view_model.dart';
+import '../features/playback/presentation/playback_lifecycle_coordinator.dart';
 import '../features/catalog/models/content_type.dart';
 
 class AppDependencies {
@@ -28,10 +29,12 @@ class AppDependencies {
   }) : _client = client ?? http.Client() {
     final transport = ApiTransport(client: _client, baseUri: config.apiBaseUri);
     authRepository = RemoteAuthRepository(transport);
+    playbackLifecycleCoordinator = PlaybackLifecycleCoordinator();
     sessionStore = AuthSessionController(
       store: tokenStore ?? SecureTokenStore(),
       now: now,
       revokeSession: (token) => authRepository.logout(refreshToken: token),
+      beforeLogout: () => playbackLifecycleCoordinator.stopAndFlushAll(),
     );
     final refresh = RefreshCoordinator(
       repository: authRepository,
@@ -60,6 +63,7 @@ class AppDependencies {
   late final AuthRepository authRepository;
   late final CatalogRepository catalogRepository;
   late final PlaybackRepository playbackRepository;
+  late final PlaybackLifecycleCoordinator playbackLifecycleCoordinator;
   late final ConnectionViewModel connectionViewModel;
 
   LoginViewModel createLoginViewModel() =>
@@ -75,6 +79,7 @@ class AppDependencies {
     repository: playbackRepository,
     mediaId: mediaId,
     type: type,
+    lifecycleCoordinator: playbackLifecycleCoordinator,
   );
 
   void dispose() {

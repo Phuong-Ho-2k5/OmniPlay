@@ -7,27 +7,47 @@ import '../../catalog/models/content_type.dart';
 import 'media_player_view_model.dart';
 
 class MediaPlayerWidget extends StatefulWidget {
-  const MediaPlayerWidget({super.key, required this.createViewModel});
+  const MediaPlayerWidget({
+    super.key,
+    required this.createViewModel,
+    this.onViewModelChanged,
+  });
 
   final MediaPlayerViewModel Function() createViewModel;
+  final void Function(MediaPlayerViewModel? viewModel)? onViewModelChanged;
 
   @override
   State<MediaPlayerWidget> createState() => _MediaPlayerWidgetState();
 }
 
-class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
+class _MediaPlayerWidgetState extends State<MediaPlayerWidget>
+    with WidgetsBindingObserver {
   late final MediaPlayerViewModel _viewModel;
   double? _draggingSeconds;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _viewModel = widget.createViewModel();
+    widget.onViewModelChanged?.call(_viewModel);
     unawaited(_viewModel.load());
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(_viewModel.onAppBackgrounded());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.onViewModelChanged?.call(null);
     _viewModel.dispose();
     super.dispose();
   }
@@ -178,6 +198,13 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
                       'Đã phát thực tế: ${state.coveragePercent}%',
                       style: theme.textTheme.bodySmall,
                     ),
+                    if (state.resumedFrom != null && !state.playing)
+                      Text(
+                        'Tiếp tục từ ${_format(state.resumedFrom!)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.secondary,
+                        ),
+                      ),
                     if (state.completed)
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -199,6 +226,31 @@ class _MediaPlayerWidgetState extends State<MediaPlayerWidget> {
                       ),
                   ],
                 ),
+                if (state.syncError != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.sync_problem_outlined,
+                        size: 16,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          state.syncError!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => unawaited(_viewModel.retrySync()),
+                        child: const Text('Thử đồng bộ lại'),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ],
           ),

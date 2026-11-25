@@ -14,10 +14,12 @@ class AuthSessionController extends ChangeNotifier implements SessionStore {
     required this._store,
     DateTime Function()? now,
     this._revokeSession,
+    this._beforeLogout,
   }) : _now = now ?? (() => DateTime.now().toUtc());
   final SecureTokenStore _store;
   final DateTime Function() _now;
   final Future<void> Function(String token)? _revokeSession;
+  final Future<void> Function()? _beforeLogout;
   Future<LogoutOutcome>? _logoutInFlight;
   Future<void>? _storageRetryInFlight;
   int? _logoutGeneration;
@@ -227,6 +229,32 @@ class AuthSessionController extends ChangeNotifier implements SessionStore {
     if (_logoutInFlight != null && _logoutGeneration == _generation) {
       return _logoutInFlight!;
     }
+    final preLogout = _beforeLogout;
+    if (preLogout == null) {
+      return _beginLogout();
+    }
+    final generation = _generation;
+    late final Future<LogoutOutcome> flight;
+    flight =
+        (() async {
+          try {
+            await preLogout();
+          } catch (_) {
+            // Best-effort progress flush never blocks logout.
+          }
+          if (!isCurrent(generation)) {
+            return LogoutOutcome.confirmed;
+          }
+          return _executeLogout();
+        })().whenComplete(() {
+          if (identical(_logoutInFlight, flight)) _logoutInFlight = null;
+        });
+    _logoutGeneration = generation;
+    _logoutInFlight = flight;
+    return flight;
+  }
+
+  Future<LogoutOutcome> _beginLogout() {
     final token = _tokens?.refreshToken;
     final local = clear(
       notice: 'Đang đăng xuất…',
@@ -239,6 +267,16 @@ class AuthSessionController extends ChangeNotifier implements SessionStore {
     _logoutGeneration = generation;
     _logoutInFlight = flight;
     return flight;
+  }
+
+  Future<LogoutOutcome> _executeLogout() {
+    final token = _tokens?.refreshToken;
+    final local = clear(
+      notice: 'Đang đăng xuất…',
+    ).then<bool>((_) => true, onError: (Object _, StackTrace stack) => false);
+    final generation = _generation;
+    _logoutGeneration = generation;
+    return _finishLogout(local, _revoke(token), generation);
   }
 
   Future<bool> _revoke(String? token) async {

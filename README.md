@@ -15,7 +15,7 @@ OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, h�
 - Màn Khám phá Flutter, đọc chi tiết Post, ảnh bìa có JWT và xử lý rỗng/lỗi/tải thêm.
 - Playback metadata (`GET /media/{id}/playback`) và stream media có xác thực JWT hỗ trợ HTTP Range (`200`/`206`/`416`).
 - Ghi nhận lượt phát (`POST /me/playback-attempts`) và báo cáo tiến độ/segment (`PUT /me/progress/{mediaId}`) với hợp nhất đoạn trùng theo trục media và ngưỡng hoàn thành 90%.
-- Trình phát trong Flutter (`video_player` cho Video, `just_audio` cho Nhạc/Podcast) hỗ trợ Play/Pause/Seek, tự refresh token khi 401, theo dõi độ phủ phát thực tế tách biệt với vị trí thanh tua và gửi báo cáo theo nhịp 15 giây cùng các thao tác chính.
+- Trình phát trong Flutter (`video_player` cho Video, `just_audio` cho Nhạc/Podcast) hỗ trợ Play/Pause/Seek, tự refresh token khi 401, theo dõi độ phủ phát thực tế tách biệt với vị trí thanh tua, gửi báo cáo theo nhịp 15 giây cùng các thao tác chính, khôi phục vị trí tiếp tục và độ phủ đã xác nhận từ máy chủ, xử lý đồng bộ lại khi mất mạng và dừng phát/lưu tiến độ khi rời màn, xuống nền hoặc đăng xuất.
 
 Sau đăng nhập, ứng dụng mở Khám phá và cho phép phát Video, Nhạc, Podcast ngay trong màn chi tiết kèm theo dõi độ phủ phát thực tế. Hai phiên nghe nhạc/podcast, mini player, Đã lưu, Playlist, Quest và Mystery Box nằm ở các hạng mục tiếp theo.
 

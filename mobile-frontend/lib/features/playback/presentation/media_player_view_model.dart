@@ -12,6 +12,7 @@ import '../data/playback_repository.dart';
 import '../models/playback_metadata.dart';
 import '../models/playback_report.dart';
 import 'media_player_state.dart';
+import 'playback_lifecycle_coordinator.dart';
 import 'playback_segment_tracker.dart';
 
 class MediaPlayerViewModel extends ChangeNotifier {
@@ -20,12 +21,16 @@ class MediaPlayerViewModel extends ChangeNotifier {
     required this.mediaId,
     required this.type,
     DateTime Function()? now,
-  }) : _now = now ?? (() => DateTime.now().toUtc());
+    PlaybackLifecycleCoordinator? lifecycleCoordinator,
+  }) : _now = now ?? (() => DateTime.now().toUtc()) {
+    _unregisterLifecycle = lifecycleCoordinator?.register(stopAndFlush);
+  }
 
   final PlaybackRepository repository;
   final String mediaId;
   final ContentType type;
   final DateTime Function() _now;
+  VoidCallback? _unregisterLifecycle;
 
   static const Duration _reportInterval = Duration(seconds: 15);
   static const Uuid _uuid = Uuid();
@@ -43,6 +48,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
   PlaybackSegmentTracker? _tracker;
   bool _attemptRegistered = false;
   bool _flushing = false;
+  double? _queuedResumeSeconds;
+  Future<void>? _activeFlush;
   bool _videoEndReported = false;
   Timer? _reportTimer;
 
@@ -75,6 +82,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
         attemptId: _uuid.v4(),
         durationSeconds: metadata.durationSeconds,
       );
+      final resumedFromServer =
+          startAt == null && metadata.resumePositionSeconds > 0;
       final resume =
           startAt ??
           Duration(
@@ -83,6 +92,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
       await _openStream(
         metadata: metadata,
         startAt: resume,
+        resumedFrom: resumedFromServer ? resume : null,
         autoPlay: autoPlay,
         seq: seq,
         allowAuthRetry: true,
@@ -107,6 +117,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
   Future<void> _openStream({
     required PlaybackMetadata metadata,
     required Duration startAt,
+    Duration? resumedFrom,
     required bool autoPlay,
     required int seq,
     required bool allowAuthRetry,
@@ -114,6 +125,9 @@ class MediaPlayerViewModel extends ChangeNotifier {
     final request = repository.buildStreamRequest(metadata.streamPath);
     _activeAuth = request;
     final fallbackDuration = Duration(seconds: metadata.durationSeconds);
+    final initialCovered = metadata.coveredSeconds > _state.coveredSeconds
+        ? metadata.coveredSeconds
+        : _state.coveredSeconds;
 
     try {
       if (type == ContentType.video) {
@@ -144,8 +158,13 @@ class MediaPlayerViewModel extends ChangeNotifier {
             buffering: controller.value.isBuffering,
             position: clamped,
             duration: total,
-            coveredSeconds: _state.coveredSeconds,
+            coveredSeconds: initialCovered,
             completed: metadata.completed || _state.completed,
+            resumedFrom: resumedFrom != null
+                ? _clamp(resumedFrom, total)
+                : null,
+            hasPendingSync: _state.hasPendingSync,
+            syncError: _state.syncError,
             metadata: metadata,
           ),
         );
@@ -176,8 +195,13 @@ class MediaPlayerViewModel extends ChangeNotifier {
             buffering: false,
             position: _clamp(startAt, total),
             duration: total,
-            coveredSeconds: _state.coveredSeconds,
+            coveredSeconds: initialCovered,
             completed: metadata.completed || _state.completed,
+            resumedFrom: resumedFrom != null
+                ? _clamp(resumedFrom, total)
+                : null,
+            hasPendingSync: _state.hasPendingSync,
+            syncError: _state.syncError,
             metadata: metadata,
           ),
         );
@@ -196,6 +220,7 @@ class MediaPlayerViewModel extends ChangeNotifier {
           await _openStream(
             metadata: metadata,
             startAt: startAt,
+            resumedFrom: resumedFrom,
             autoPlay: autoPlay,
             seq: seq,
             allowAuthRetry: false,
@@ -380,6 +405,9 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
   Future<void> togglePlayPause() async {
     if (_disposed || !_state.ready) return;
+    if (_state.resumedFrom != null) {
+      _setState(_state.copyWith(clearResumedFrom: true));
+    }
     if (type == ContentType.video) {
       final c = _videoController;
       if (c == null) return;
@@ -418,6 +446,9 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
   Future<void> seek(Duration target) async {
     if (_disposed || !_state.ready) return;
+    if (_state.resumedFrom != null) {
+      _setState(_state.copyWith(clearResumedFrom: true));
+    }
     final previousPos = _seconds(_state.position);
     final wasActive = _state.playing && !_state.buffering;
     _tracker?.cutSegment(previousPos, _now());
@@ -437,6 +468,66 @@ class MediaPlayerViewModel extends ChangeNotifier {
   }
 
   Future<void> retry() => load(startAt: _state.position, autoPlay: false);
+
+  Future<void> retrySync() async {
+    if (_disposed) return;
+    await _flushProgress(_seconds(_state.position));
+  }
+
+  /// Stops active playback, cuts the open segment, and awaits a bounded best-effort flush.
+  Future<void> stopAndFlush({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (_disposed) return;
+    final pos = _seconds(_state.position);
+    _tracker?.cutSegment(pos, _now());
+    _stopReportTimer();
+    try {
+      if (type == ContentType.video) {
+        final c = _videoController;
+        if (c != null && c.value.isPlaying) {
+          await c.pause();
+        }
+      } else {
+        final p = _audioPlayer;
+        if (p != null && p.playing) {
+          await p.pause();
+        }
+      }
+    } catch (_) {
+      /* Ignore player pause failures during teardown. */
+    }
+    if (_attemptRegistered ||
+        (_tracker?.pendingSegments.isNotEmpty ?? false) ||
+        _flushing) {
+      try {
+        await _flushProgress(pos).timeout(timeout);
+      } catch (_) {
+        /* Unsent segments are accepted as lost on abrupt exit (BR-06). */
+      }
+    }
+  }
+
+  /// Handles app moving to background/inactive/detached: cuts segment, pauses video, flushes progress.
+  Future<void> onAppBackgrounded() async {
+    if (_disposed) return;
+    final pos = _seconds(_state.position);
+    _tracker?.cutSegment(pos, _now());
+    _stopReportTimer();
+    if (type == ContentType.video) {
+      final c = _videoController;
+      if (c != null && c.value.isPlaying) {
+        try {
+          await c.pause();
+        } catch (_) {
+          /* Ignore pause failure on background transition. */
+        }
+      }
+    }
+    if (_attemptRegistered || (_tracker?.pendingSegments.isNotEmpty ?? false)) {
+      unawaited(_flushProgress(pos));
+    }
+  }
 
   void _startReportTimer() {
     if (_reportTimer != null || _disposed) return;
@@ -471,41 +562,82 @@ class MediaPlayerViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _flushProgress(double resumeSeconds) async {
+  Future<void> _flushProgress(double resumeSeconds) {
     final tracker = _tracker;
-    if (tracker == null || _flushing) return;
+    if (tracker == null) return Future<void>.value();
+    if (_flushing) {
+      _queuedResumeSeconds = resumeSeconds;
+      return _activeFlush ?? Future<void>.value();
+    }
     _flushing = true;
-    try {
-      if (!await _ensureAttemptRegistered()) return;
-      final segments = tracker.pendingSegments;
-      final clampedResume = resumeSeconds.clamp(
-        0.0,
-        tracker.durationSeconds.toDouble(),
-      );
-      final result = await repository.reportProgress(
-        mediaId: mediaId,
-        report: PlaybackReport(
-          attemptId: tracker.attemptId,
-          resumePositionSeconds: clampedResume,
-          segments: segments,
-        ),
-      );
-      if (segments.isNotEmpty) {
-        tracker.acknowledgeUpTo(segments.last.eventSeq);
-      }
-      if (!_disposed) {
-        _setState(
-          _state.copyWith(
-            coveredSeconds: result.coveredSeconds,
-            completed: result.completed,
+    final future = _drainFlushLoop(tracker, resumeSeconds).whenComplete(() {
+      _flushing = false;
+      _activeFlush = null;
+    });
+    _activeFlush = future;
+    return future;
+  }
+
+  Future<void> _drainFlushLoop(
+    PlaybackSegmentTracker tracker,
+    double initialResumeSeconds,
+  ) async {
+    double? nextResume = initialResumeSeconds;
+    while (nextResume != null) {
+      final resumeSeconds = nextResume;
+      nextResume = null;
+      try {
+        if (!await _ensureAttemptRegistered()) {
+          _markSyncFailed(tracker);
+          break;
+        }
+        final segments = tracker.pendingSegments;
+        final clampedResume = resumeSeconds.clamp(
+          0.0,
+          tracker.durationSeconds.toDouble(),
+        );
+        final result = await repository.reportProgress(
+          mediaId: mediaId,
+          report: PlaybackReport(
+            attemptId: tracker.attemptId,
+            resumePositionSeconds: clampedResume,
+            segments: segments,
           ),
         );
+        if (segments.isNotEmpty) {
+          tracker.acknowledgeUpTo(segments.last.eventSeq);
+        }
+        if (!_disposed) {
+          _setState(
+            _state.copyWith(
+              coveredSeconds: result.coveredSeconds,
+              completed: result.completed,
+              hasPendingSync: tracker.pendingSegments.isNotEmpty,
+              clearSyncError: true,
+            ),
+          );
+        }
+      } on SessionChangedException {
+        break;
+      } catch (_) {
+        _markSyncFailed(tracker);
+        break;
       }
-    } catch (_) {
-      // Unacknowledged segments remain queued with original eventSeq for retry.
-    } finally {
-      _flushing = false;
+      if (_queuedResumeSeconds != null) {
+        nextResume = _queuedResumeSeconds;
+        _queuedResumeSeconds = null;
+      }
     }
+  }
+
+  void _markSyncFailed(PlaybackSegmentTracker tracker) {
+    if (_disposed) return;
+    _setState(
+      _state.copyWith(
+        hasPendingSync: true,
+        syncError: 'Chưa đồng bộ được tiến độ do mất kết nối.',
+      ),
+    );
   }
 
   double _seconds(Duration d) => d.inMilliseconds / 1000.0;
@@ -590,6 +722,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _unregisterLifecycle?.call();
+    _unregisterLifecycle = null;
     final finalPos = _seconds(_state.position);
     _tracker?.cutSegment(finalPos, _now());
     _stopReportTimer();

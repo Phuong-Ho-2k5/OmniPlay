@@ -10,6 +10,9 @@ class MediaPlayerState {
     this.duration = Duration.zero,
     this.coveredSeconds = 0,
     this.completed = false,
+    this.resumedFrom,
+    this.hasPendingSync = false,
+    this.syncError,
     this.message,
     this.unavailable = false,
     this.fileMissing = false,
@@ -24,6 +27,9 @@ class MediaPlayerState {
   final Duration duration;
   final double coveredSeconds;
   final bool completed;
+  final Duration? resumedFrom;
+  final bool hasPendingSync;
+  final String? syncError;
   final String? message;
   final bool unavailable;
   final bool fileMissing;
@@ -44,6 +50,11 @@ class MediaPlayerState {
     Duration? duration,
     double? coveredSeconds,
     bool? completed,
+    Duration? resumedFrom,
+    bool clearResumedFrom = false,
+    bool? hasPendingSync,
+    String? syncError,
+    bool clearSyncError = false,
     String? message,
     bool clearMessage = false,
     bool? unavailable,
@@ -58,6 +69,9 @@ class MediaPlayerState {
     duration: duration ?? this.duration,
     coveredSeconds: coveredSeconds ?? this.coveredSeconds,
     completed: completed ?? this.completed,
+    resumedFrom: clearResumedFrom ? null : (resumedFrom ?? this.resumedFrom),
+    hasPendingSync: hasPendingSync ?? this.hasPendingSync,
+    syncError: clearSyncError ? null : (syncError ?? this.syncError),
     message: clearMessage ? null : (message ?? this.message),
     unavailable: unavailable ?? this.unavailable,
     fileMissing: fileMissing ?? this.fileMissing,
