@@ -5,6 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/mini_player_bar.dart';
 import '../../playback/presentation/player_coordinator.dart';
+import '../../playlist/data/playlist_repository.dart';
+import '../../playlist/presentation/playlist_detail_screen.dart';
+import '../../playlist/presentation/playlists_screen.dart';
+import '../../playlist/presentation/playlists_view_model.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../saved/presentation/saved_screen.dart';
 import '../../saved/presentation/saved_view_model.dart';
@@ -26,16 +30,20 @@ class CatalogSession extends StatefulWidget {
     super.key,
     required this.repository,
     required this.savedRepository,
+    required this.playlistRepository,
     required this.createViewModel,
     required this.createSavedViewModel,
+    required this.createPlaylistsViewModel,
     required this.createPlayerViewModel,
     required this.createPlayerCoordinator,
     required this.onLogout,
   });
   final CatalogRepository repository;
   final SavedRepository savedRepository;
+  final PlaylistRepository playlistRepository;
   final CatalogViewModel Function() createViewModel;
   final SavedViewModel Function() createSavedViewModel;
+  final PlaylistsViewModel Function() createPlaylistsViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator Function() createPlayerCoordinator;
   final VoidCallback onLogout;
@@ -47,6 +55,7 @@ class _CatalogSessionState extends State<CatalogSession> {
   final _navigator = GlobalKey<NavigatorState>();
   late final PlayerCoordinator _coordinator;
   late final SavedViewModel _savedViewModel;
+  late final PlaylistsViewModel _playlistsViewModel;
   final ValueNotifier<int> _tabIndex = ValueNotifier<int>(0);
 
   @override
@@ -54,12 +63,14 @@ class _CatalogSessionState extends State<CatalogSession> {
     super.initState();
     _coordinator = widget.createPlayerCoordinator();
     _savedViewModel = widget.createSavedViewModel();
+    _playlistsViewModel = widget.createPlaylistsViewModel();
     unawaited(_coordinator.restoreSessions());
   }
 
   @override
   void dispose() {
     _tabIndex.dispose();
+    _playlistsViewModel.dispose();
     _savedViewModel.dispose();
     _coordinator.dispose();
     super.dispose();
@@ -77,6 +88,18 @@ class _CatalogSessionState extends State<CatalogSession> {
           genres: const [],
           createPlayerViewModel: widget.createPlayerViewModel,
           playerCoordinator: _coordinator,
+        ),
+      ),
+    );
+  }
+
+  void _openPlaylist(String playlistId) {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlaylistDetailScreen(
+          repository: widget.playlistRepository,
+          playlistId: playlistId,
+          onOpenMusic: _openDetail,
         ),
       ),
     );
@@ -112,6 +135,11 @@ class _CatalogSessionState extends State<CatalogSession> {
                       onOpenItem: _openDetail,
                       onLogout: widget.onLogout,
                     ),
+                    PlaylistsScreen(
+                      viewModel: _playlistsViewModel,
+                      onOpenPlaylist: _openPlaylist,
+                      onLogout: widget.onLogout,
+                    ),
                   ],
                 ),
               ),
@@ -134,6 +162,8 @@ class _CatalogSessionState extends State<CatalogSession> {
               _tabIndex.value = next;
               if (next == 1) {
                 unawaited(_savedViewModel.refresh());
+              } else if (next == 2) {
+                unawaited(_playlistsViewModel.refresh());
               }
             },
             destinations: const [
@@ -146,6 +176,11 @@ class _CatalogSessionState extends State<CatalogSession> {
                 icon: Icon(Icons.bookmark_border),
                 selectedIcon: Icon(Icons.bookmark),
                 label: 'Đã lưu',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.queue_music_outlined),
+                selectedIcon: Icon(Icons.queue_music),
+                label: 'Playlist',
               ),
             ],
           ),

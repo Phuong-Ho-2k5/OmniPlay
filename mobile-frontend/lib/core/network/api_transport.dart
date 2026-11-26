@@ -41,6 +41,16 @@ class ApiTransport {
     );
   }
 
+  Future<void> deleteNoContent(String path, {String? accessToken}) async {
+    await _request(
+      'DELETE',
+      path,
+      expectedStatusCode: 204,
+      accessToken: accessToken,
+      noContent: true,
+    );
+  }
+
   Future<Map<String, dynamic>> sendJson(
     String method,
     String path, {

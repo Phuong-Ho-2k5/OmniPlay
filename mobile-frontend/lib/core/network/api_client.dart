@@ -60,6 +60,27 @@ class ApiClient {
     authenticated: authenticated,
   );
 
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    required Map<String, dynamic> body,
+    int? expectedStatusCode,
+    bool authenticated = true,
+  }) => _request(
+    'PATCH',
+    path,
+    encodedBody: jsonEncode(body),
+    expectedStatusCode: expectedStatusCode,
+    authenticated: authenticated,
+  );
+
+  Future<void> deleteNoContent(String path, {bool authenticated = true}) =>
+      _authenticated<void>(
+        'DELETE',
+        path,
+        authenticated: authenticated,
+        send: (token) => _transport.deleteNoContent(path, accessToken: token),
+      );
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {

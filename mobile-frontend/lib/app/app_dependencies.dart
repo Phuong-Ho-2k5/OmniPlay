@@ -20,6 +20,8 @@ import '../features/playback/data/playback_repository.dart';
 import '../features/playback/presentation/media_player_view_model.dart';
 import '../features/playback/presentation/playback_lifecycle_coordinator.dart';
 import '../features/playback/presentation/player_coordinator.dart';
+import '../features/playlist/data/playlist_repository.dart';
+import '../features/playlist/presentation/playlists_view_model.dart';
 import '../features/saved/data/saved_repository.dart';
 import '../features/saved/presentation/saved_view_model.dart';
 import '../features/catalog/models/content_type.dart';
@@ -58,6 +60,7 @@ class AppDependencies {
     );
     listeningSessionRepository = RemoteListeningSessionRepository(apiClient);
     savedRepository = RemoteSavedRepository(apiClient);
+    playlistRepository = RemotePlaylistRepository(apiClient);
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -71,6 +74,7 @@ class AppDependencies {
   late final PlaybackRepository playbackRepository;
   late final ListeningSessionRepository listeningSessionRepository;
   late final SavedRepository savedRepository;
+  late final PlaylistRepository playlistRepository;
   late final PlaybackLifecycleCoordinator playbackLifecycleCoordinator;
   late final ConnectionViewModel connectionViewModel;
 
@@ -81,6 +85,8 @@ class AppDependencies {
   CatalogViewModel createCatalogViewModel() =>
       CatalogViewModel(catalogRepository);
   SavedViewModel createSavedViewModel() => SavedViewModel(savedRepository);
+  PlaylistsViewModel createPlaylistsViewModel() =>
+      PlaylistsViewModel(playlistRepository);
   PlayerCoordinator createPlayerCoordinator() => PlayerCoordinator(
     playbackRepository: playbackRepository,
     sessionRepository: listeningSessionRepository,

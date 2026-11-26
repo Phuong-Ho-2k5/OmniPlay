@@ -16,9 +16,10 @@ OmniPlay là ứng dụng Android xây dựng bằng Flutter và Spring Boot, h�
 - Playback metadata (`GET /media/{id}/playback`) và stream media có xác thực JWT hỗ trợ HTTP Range (`200`/`206`/`416`).
 - Ghi nhận lượt phát (`POST /me/playback-attempts`), báo cáo tiến độ/segment (`PUT /me/progress/{mediaId}`) với hợp nhất đoạn trùng theo trục media và ngưỡng hoàn thành 90%, cùng hai phiên nghe Nhạc/Podcast độc lập (`GET`/`PUT /me/listening-sessions/{type}`).
 - Quản lý danh sách Đã lưu (`GET /me/saved`, `PUT /me/saved/{id}`) hợp nhất media và bài viết theo `savedAt` giảm dần, hỗ trợ bỏ lưu cả nội dung ngừng phục vụ.
-- Trình phát trong Flutter (`video_player` cho Video, `just_audio` dùng chung qua `PlayerCoordinator` cho Nhạc/Podcast) hỗ trợ Play/Pause/Seek, tự refresh token khi 401, theo dõi độ phủ phát thực tế tách biệt với vị trí thanh tua, báo cáo theo nhịp 15 giây, khôi phục tiến độ từ máy chủ, xử lý đồng bộ lại khi mất mạng, chuyển phiên Nhạc ↔ Podcast ở trạng thái tạm dừng, Mini Player xuyên suốt khi chuyển màn, điều hướng hai tab Khám phá / Đã lưu kèm nút lưu/bỏ lưu cho cả bốn loại nội dung và dừng phát/lưu tiến độ khi rời màn, xuống nền hoặc đăng xuất.
+- Quản lý playlist cá nhân (`GET`/`POST /me/playlists`, `GET`/`PATCH`/`DELETE /me/playlists/{id}`) với idempotency theo `requestId` khi tạo, kiểm tra tên 1–120 ký tự và xác nhận trước khi xóa.
+- Trình phát trong Flutter (`video_player` cho Video, `just_audio` dùng chung qua `PlayerCoordinator` cho Nhạc/Podcast) hỗ trợ Play/Pause/Seek, tự refresh token khi 401, theo dõi độ phủ phát thực tế tách biệt với vị trí thanh tua, báo cáo theo nhịp 15 giây, khôi phục tiến độ từ máy chủ, xử lý đồng bộ lại khi mất mạng, chuyển phiên Nhạc ↔ Podcast ở trạng thái tạm dừng, Mini Player xuyên suốt khi chuyển màn, điều hướng ba tab Khám phá / Đã lưu / Playlist và dừng phát/lưu tiến độ khi rời màn, xuống nền hoặc đăng xuất.
 
-Sau đăng nhập, ứng dụng mở Khám phá và Đã lưu, cho phép phát Video, Nhạc, Podcast, đọc Post, lưu/bỏ lưu nội dung và điều khiển hai phiên nghe qua Mini Player. Playlist, Quest và Mystery Box nằm ở các hạng mục tiếp theo.
+Sau đăng nhập, ứng dụng mở Khám phá, Đã lưu và Playlist, cho phép phát Video, Nhạc, Podcast, đọc Post, lưu/bỏ lưu nội dung, tạo/đổi tên/xóa playlist và điều khiển hai phiên nghe qua Mini Player. Thêm/gỡ bài và phát hàng đợi playlist, Quest và Mystery Box nằm ở các hạng mục tiếp theo.
 
 ## Công nghệ
 
@@ -71,7 +72,7 @@ File media được tạo bằng `backend/scripts/prepare_demo_media.py` và kh�
 - Bản Android debug hỗ trợ HTTP local; môi trường demo yêu cầu HTTPS.
 - Flyway quản lý schema, Hibernate dùng `ddl-auto: validate`.
 
-Xem [kiến trúc](docs/architecture.md), [hợp đồng API xác thực](docs/api/auth-contract.md), [API danh mục](docs/api/catalog-contract.md), [API phát & stream media](docs/api/playback-stream-contract.md), [API lượt phát & báo cáo tiến độ](docs/api/playback-progress-contract.md), [API phiên nghe nhạc/podcast](docs/api/listening-session-contract.md) và [API Đã lưu](docs/api/saved-contract.md).
+Xem [kiến trúc](docs/architecture.md), [hợp đồng API xác thực](docs/api/auth-contract.md), [API danh mục](docs/api/catalog-contract.md), [API phát & stream media](docs/api/playback-stream-contract.md), [API lượt phát & báo cáo tiến độ](docs/api/playback-progress-contract.md), [API phiên nghe nhạc/podcast](docs/api/listening-session-contract.md), [API Đã lưu](docs/api/saved-contract.md) và [API Playlist](docs/api/playlist-contract.md).
 
 
 
