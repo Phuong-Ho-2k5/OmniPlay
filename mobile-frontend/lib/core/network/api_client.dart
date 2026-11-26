@@ -49,13 +49,13 @@ class ApiClient {
 
   Future<Map<String, dynamic>> putJson(
     String path, {
-    required Map<String, dynamic> body,
+    Map<String, dynamic>? body,
     int? expectedStatusCode,
     bool authenticated = true,
   }) => _request(
     'PUT',
     path,
-    encodedBody: jsonEncode(body),
+    encodedBody: body == null ? null : jsonEncode(body),
     expectedStatusCode: expectedStatusCode,
     authenticated: authenticated,
   );

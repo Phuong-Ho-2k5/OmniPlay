@@ -103,6 +103,14 @@ class MiniPlayerBar extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (coordinator.hasMusicQueue)
+                      IconButton(
+                        tooltip: 'Bài trước',
+                        icon: const Icon(Icons.skip_previous),
+                        onPressed: coordinator.hasPrevious
+                            ? () => unawaited(coordinator.previousTrack())
+                            : null,
+                      ),
                     if (coordinator.loading || coordinator.buffering)
                       const Padding(
                         padding: EdgeInsets.all(10),
@@ -120,6 +128,14 @@ class MiniPlayerBar extends StatelessWidget {
                         ),
                         onPressed: () =>
                             unawaited(coordinator.togglePlayPause()),
+                      ),
+                    if (coordinator.hasMusicQueue)
+                      IconButton(
+                        tooltip: 'Bài tiếp theo',
+                        icon: const Icon(Icons.skip_next),
+                        onPressed: coordinator.hasNext
+                            ? () => unawaited(coordinator.nextTrack())
+                            : null,
                       ),
                   ],
                 ),

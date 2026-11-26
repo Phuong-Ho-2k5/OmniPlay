@@ -11,6 +11,14 @@ abstract class PlaylistRepository {
   Future<PlaylistDetail> detail(String id);
   Future<PlaylistRenamed> rename({required String id, required String name});
   Future<void> delete(String id);
+  Future<PlaylistItemAdded> addItem({
+    required String playlistId,
+    required String mediaId,
+  });
+  Future<void> removeItem({
+    required String playlistId,
+    required String mediaId,
+  });
 }
 
 class RemotePlaylistRepository implements PlaylistRepository {
@@ -74,5 +82,29 @@ class RemotePlaylistRepository implements PlaylistRepository {
   Future<void> delete(String id) async {
     catalogId(id);
     await _api.deleteNoContent('/me/playlists/$id');
+  }
+
+  @override
+  Future<PlaylistItemAdded> addItem({
+    required String playlistId,
+    required String mediaId,
+  }) async {
+    catalogId(playlistId);
+    catalogId(mediaId);
+    final json = await _api.putJson(
+      '/me/playlists/$playlistId/items/$mediaId',
+      expectedStatusCode: 200,
+    );
+    return PlaylistItemAdded.fromJson(json);
+  }
+
+  @override
+  Future<void> removeItem({
+    required String playlistId,
+    required String mediaId,
+  }) async {
+    catalogId(playlistId);
+    catalogId(mediaId);
+    await _api.deleteNoContent('/me/playlists/$playlistId/items/$mediaId');
   }
 }

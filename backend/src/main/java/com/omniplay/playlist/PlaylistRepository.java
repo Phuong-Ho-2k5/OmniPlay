@@ -1,7 +1,9 @@
 package com.omniplay.playlist;
 
+import com.omniplay.catalog.ContentType;
 import com.omniplay.dto.response.PageResponse;
 import com.omniplay.dto.response.PlaylistDetailResponse;
+import com.omniplay.dto.response.PlaylistItemAddedResponse;
 import com.omniplay.dto.response.PlaylistSummaryResponse;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -92,6 +94,63 @@ public class PlaylistRepository {
 
     public void deleteById(UUID playlistId) {
         jdbc.update("DELETE FROM playlists WHERE playlist_id = :id", Map.of("id", playlistId));
+    }
+
+    public boolean lockOwnedPlaylist(UUID playlistId, UUID userId) {
+        return !jdbc.query(
+                "SELECT playlist_id FROM playlists WHERE playlist_id = :id AND user_id = :userId FOR UPDATE",
+                Map.of("id", playlistId, "userId", userId),
+                (rs, rowNum) -> rs.getObject("playlist_id", UUID.class)).isEmpty();
+    }
+
+    public Optional<ContentType> findAvailableMediaType(UUID mediaId) {
+        return jdbc.query(
+                "SELECT media_type::text AS media_type FROM media WHERE media_id = :mediaId AND is_available = TRUE",
+                Map.of("mediaId", mediaId),
+                (rs, rowNum) -> ContentType.valueOf(rs.getString("media_type"))).stream().findFirst();
+    }
+
+    public Optional<PlaylistItemAddedResponse> findItem(UUID playlistId, UUID mediaId) {
+        return jdbc.query("""
+                SELECT playlist_item_id, media_id, position
+                FROM playlist_items
+                WHERE playlist_id = :playlistId AND media_id = :mediaId
+                """, Map.of("playlistId", playlistId, "mediaId", mediaId), (rs, rowNum) ->
+                new PlaylistItemAddedResponse(
+                        rs.getObject("playlist_item_id", UUID.class),
+                        rs.getObject("media_id", UUID.class),
+                        rs.getInt("position"))).stream().findFirst();
+    }
+
+    public PlaylistItemAddedResponse insertItemAtEnd(UUID playlistId, UUID mediaId, Instant now) {
+        Integer nextPos = jdbc.queryForObject(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_items WHERE playlist_id = :playlistId",
+                Map.of("playlistId", playlistId), Integer.class);
+        int position = nextPos == null ? 0 : nextPos;
+        UUID itemId = UUID.randomUUID();
+        var params = new MapSqlParameterSource()
+                .addValue("itemId", itemId)
+                .addValue("playlistId", playlistId)
+                .addValue("mediaId", mediaId)
+                .addValue("position", position)
+                .addValue("now", Timestamp.from(now));
+        jdbc.update("""
+                INSERT INTO playlist_items (playlist_item_id, playlist_id, media_id, position, skip_count, suggestion_dismissed, added_at)
+                VALUES (:itemId, :playlistId, :mediaId, :position, 0, FALSE, :now)
+                """, params);
+        jdbc.update("UPDATE playlists SET updated_at = :now WHERE playlist_id = :playlistId",
+                Map.of("now", Timestamp.from(now), "playlistId", playlistId));
+        return new PlaylistItemAddedResponse(itemId, mediaId, position);
+    }
+
+    public void deleteItem(UUID playlistId, UUID mediaId, Instant now) {
+        int removed = jdbc.update(
+                "DELETE FROM playlist_items WHERE playlist_id = :playlistId AND media_id = :mediaId",
+                Map.of("playlistId", playlistId, "mediaId", mediaId));
+        if (removed > 0) {
+            jdbc.update("UPDATE playlists SET updated_at = :now WHERE playlist_id = :playlistId",
+                    Map.of("now", Timestamp.from(now), "playlistId", playlistId));
+        }
     }
 
     public List<PlaylistDetailResponse.PlaylistItemResponse> findItems(UUID playlistId) {

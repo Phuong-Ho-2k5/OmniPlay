@@ -142,3 +142,22 @@ class PlaylistRenamed {
         updatedAt: _parseUtc(json['updatedAt']),
       );
 }
+
+class PlaylistItemAdded {
+  const PlaylistItemAdded({
+    required this.playlistItemId,
+    required this.mediaId,
+    required this.position,
+  });
+
+  final String playlistItemId;
+  final String mediaId;
+  final int position;
+
+  factory PlaylistItemAdded.fromJson(Map<String, dynamic> json) =>
+      PlaylistItemAdded(
+        playlistItemId: catalogId(json['playlistItemId']),
+        mediaId: catalogId(json['mediaId']),
+        position: catalogInt(json['position']),
+      );
+}

@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Dữ liệu chưa hợp lệ."),
+    MUSIC_REQUIRED(HttpStatus.BAD_REQUEST, "Playlist chỉ chấp nhận nội dung nhạc."),
     EMAIL_ALREADY_USED(HttpStatus.CONFLICT, "Email đã được sử dụng."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng."),
     ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Phiên truy cập đã hết hạn."),

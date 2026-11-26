@@ -7,10 +7,12 @@ import '../../playback/presentation/coordinated_audio_player_widget.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/media_player_widget.dart';
 import '../../playback/presentation/player_coordinator.dart';
+import '../../playlist/data/playlist_repository.dart';
 import '../../saved/data/saved_repository.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import '../models/genre.dart';
+import 'catalog_message.dart';
 import 'catalog_thumbnail.dart';
 import 'content_detail_view_model.dart';
 
@@ -23,6 +25,8 @@ class ContentDetailScreen extends StatefulWidget {
     required this.genres,
     this.savedRepository,
     this.onSavedChanged,
+    this.playlistRepository,
+    this.onPlaylistsChanged,
     this.createPlayerViewModel,
     this.playerCoordinator,
   });
@@ -32,6 +36,8 @@ class ContentDetailScreen extends StatefulWidget {
   final List<Genre> genres;
   final SavedRepository? savedRepository;
   final VoidCallback? onSavedChanged;
+  final PlaylistRepository? playlistRepository;
+  final VoidCallback? onPlaylistsChanged;
   final MediaPlayerViewModel Function({
     required String mediaId,
     required ContentType type,
@@ -66,6 +72,28 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     }
   }
 
+  Future<void> _showAddToPlaylistSheet() async {
+    final repo = widget.playlistRepository;
+    if (repo == null) return;
+    final selectedId = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => _PickPlaylistSheet(repository: repo),
+    );
+    if (selectedId == null || !mounted) return;
+    try {
+      await repo.addItem(playlistId: selectedId, mediaId: widget.id);
+      if (!mounted) return;
+      widget.onPlaylistsChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã thêm bài nhạc vào playlist.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(catalogErrorMessage(error))));
+    }
+  }
+
   Future<void> _handleExit() async {
     if (_exiting) return;
     _exiting = true;
@@ -93,6 +121,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           widget.type == ContentType.post ? 'Bài viết' : 'Chi tiết nội dung',
         ),
         actions: [
+          if (widget.type == ContentType.music &&
+              widget.playlistRepository != null)
+            IconButton(
+              tooltip: 'Thêm vào playlist',
+              icon: const Icon(Icons.playlist_add),
+              onPressed: () => unawaited(_showAddToPlaylistSheet()),
+            ),
           if (widget.savedRepository != null)
             ListenableBuilder(
               listenable: _viewModel,
@@ -277,6 +312,93 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             );
           },
         ),
+      ),
+    ),
+  );
+}
+
+class _PickPlaylistSheet extends StatefulWidget {
+  const _PickPlaylistSheet({required this.repository});
+
+  final PlaylistRepository repository;
+
+  @override
+  State<_PickPlaylistSheet> createState() => _PickPlaylistSheetState();
+}
+
+class _PickPlaylistSheetState extends State<_PickPlaylistSheet> {
+  bool _loading = true;
+  String? _error;
+  List<({String id, String name, int count})> _playlists = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final page = await widget.repository.list(page: 0, size: 50);
+      if (!mounted) return;
+      setState(() {
+        _playlists = [
+          for (final p in page.items)
+            (id: p.id, name: p.name, count: p.itemCount),
+        ];
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = catalogErrorMessage(error);
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Chọn playlist', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            Text(_error!, textAlign: TextAlign.center)
+          else if (_playlists.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Bạn chưa có playlist nào. Hãy tạo playlist ở tab Playlist trước.',
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _playlists.length,
+                itemBuilder: (context, index) {
+                  final p = _playlists[index];
+                  return ListTile(
+                    leading: const Icon(Icons.queue_music),
+                    title: Text(p.name),
+                    subtitle: Text('${p.count} bài nhạc'),
+                    onTap: () => Navigator.of(context).pop(p.id),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     ),
   );

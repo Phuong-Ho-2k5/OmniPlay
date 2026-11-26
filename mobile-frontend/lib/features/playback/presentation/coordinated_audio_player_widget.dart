@@ -93,11 +93,27 @@ class _CoordinatedAudioPlayerWidgetState
               ] else if (isThis && c.ready) ...[
                 Row(
                   children: [
+                    if (c.hasMusicQueue)
+                      IconButton(
+                        tooltip: 'Bài trước',
+                        icon: const Icon(Icons.skip_previous),
+                        onPressed: c.hasPrevious
+                            ? () => unawaited(c.previousTrack())
+                            : null,
+                      ),
                     IconButton.filled(
                       tooltip: c.playing ? 'Tạm dừng' : 'Phát',
                       icon: Icon(c.playing ? Icons.pause : Icons.play_arrow),
                       onPressed: () => unawaited(c.togglePlayPause()),
                     ),
+                    if (c.hasMusicQueue)
+                      IconButton(
+                        tooltip: 'Bài tiếp theo',
+                        icon: const Icon(Icons.skip_next),
+                        onPressed: c.hasNext
+                            ? () => unawaited(c.nextTrack())
+                            : null,
+                      ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

@@ -1,12 +1,14 @@
 package com.omniplay.playlist;
 
 import com.omniplay.catalog.CatalogInputValidator;
+import com.omniplay.catalog.ContentType;
 import com.omniplay.common.error.ApiException;
 import com.omniplay.common.error.ErrorCode;
 import com.omniplay.dto.request.CreatePlaylistRequest;
 import com.omniplay.dto.request.RenamePlaylistRequest;
 import com.omniplay.dto.response.PageResponse;
 import com.omniplay.dto.response.PlaylistDetailResponse;
+import com.omniplay.dto.response.PlaylistItemAddedResponse;
 import com.omniplay.dto.response.PlaylistRenamedResponse;
 import com.omniplay.dto.response.PlaylistSummaryResponse;
 import java.nio.charset.StandardCharsets;
@@ -99,6 +101,33 @@ public class PlaylistService {
             throw new ApiException(ErrorCode.NOT_FOUND);
         }
         repository.deleteById(playlistId);
+    }
+
+    @Transactional
+    public PlaylistItemAddedResponse addItem(UUID userId, UUID playlistId, UUID mediaId) {
+        if (!repository.lockOwnedPlaylist(playlistId, userId)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        var mediaType = repository.findAvailableMediaType(mediaId)
+                .orElseThrow(() -> new ApiException(ErrorCode.MEDIA_UNAVAILABLE));
+        if (mediaType != ContentType.MUSIC) {
+            throw new ApiException(ErrorCode.MUSIC_REQUIRED);
+        }
+        var existing = repository.findItem(playlistId, mediaId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        return repository.insertItemAtEnd(playlistId, mediaId, now);
+    }
+
+    @Transactional
+    public void removeItem(UUID userId, UUID playlistId, UUID mediaId) {
+        if (!repository.lockOwnedPlaylist(playlistId, userId)) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        repository.deleteItem(playlistId, mediaId, now);
     }
 
     private String validateName(String raw) {

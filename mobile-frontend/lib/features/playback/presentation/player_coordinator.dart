@@ -15,6 +15,18 @@ import '../models/playback_report.dart';
 import 'playback_lifecycle_coordinator.dart';
 import 'playback_segment_tracker.dart';
 
+class MusicQueueTrack {
+  const MusicQueueTrack({
+    required this.mediaId,
+    required this.title,
+    this.playlistItemId,
+  });
+
+  final String mediaId;
+  final String title;
+  final String? playlistItemId;
+}
+
 class AudioSessionSnapshot {
   const AudioSessionSnapshot({
     required this.type,
@@ -78,6 +90,9 @@ class PlayerCoordinator extends ChangeNotifier {
     type: ListeningSessionType.podcast,
   );
   ListeningSessionType? _activeType;
+  List<MusicQueueTrack> _musicQueue = const [];
+  int _musicQueueIndex = -1;
+  bool _autoAdvancing = false;
 
   PlaybackMetadata? _metadata;
   StreamAuthRequest? _activeAuth;
@@ -115,6 +130,22 @@ class PlayerCoordinator extends ChangeNotifier {
   String? get activeMediaId => activeSession?.mediaId;
   String? get activeTitle => activeSession?.title;
   bool get hasAnySession => _music.hasMedia || _podcast.hasMedia;
+  List<MusicQueueTrack> get musicQueue => List.unmodifiable(_musicQueue);
+  int get musicQueueIndex => _musicQueueIndex;
+  bool get hasMusicQueue =>
+      _activeType == ListeningSessionType.music && _musicQueue.length > 1;
+  bool get hasPrevious =>
+      _activeType == ListeningSessionType.music && _musicQueueIndex > 0;
+  bool get hasNext =>
+      _activeType == ListeningSessionType.music &&
+      _musicQueueIndex >= 0 &&
+      _musicQueueIndex + 1 < _musicQueue.length;
+  String? get activePlaylistItemId =>
+      _activeType == ListeningSessionType.music &&
+          _musicQueueIndex >= 0 &&
+          _musicQueueIndex < _musicQueue.length
+      ? _musicQueue[_musicQueueIndex].playlistItemId
+      : null;
   bool get loading => _loading;
   bool get ready => _ready;
   bool get playing => _playing;
@@ -219,6 +250,18 @@ class PlayerCoordinator extends ChangeNotifier {
 
     final seq = ++_sequence;
     _activeType = type;
+    if (type == ListeningSessionType.music) {
+      final q = queue ?? [mediaId];
+      _musicQueue = [
+        for (final id in q)
+          MusicQueueTrack(
+            mediaId: id,
+            title: id == mediaId ? title : 'Bài nhạc',
+          ),
+      ];
+      _musicQueueIndex = _musicQueue.indexWhere((t) => t.mediaId == mediaId);
+      if (_musicQueueIndex < 0 && _musicQueue.isNotEmpty) _musicQueueIndex = 0;
+    }
     _setSnapshot(
       AudioSessionSnapshot(
         type: type,
@@ -235,6 +278,90 @@ class PlayerCoordinator extends ChangeNotifier {
       seq: seq,
       persistSessionAfterLoad: true,
     );
+  }
+
+  /// Plays a playlist queue in order starting at [startIndex].
+  Future<void> playMusicQueue({
+    required List<MusicQueueTrack> tracks,
+    int startIndex = 0,
+    bool autoPlay = true,
+  }) async {
+    if (_disposed || tracks.isEmpty) return;
+    final idx = startIndex.clamp(0, tracks.length - 1);
+    if (_activeType != null && activeMediaId != null) {
+      await _pauseAndSaveCurrentSession();
+      if (_disposed) return;
+    }
+
+    final seq = ++_sequence;
+    _activeType = ListeningSessionType.music;
+    _musicQueue = List<MusicQueueTrack>.of(tracks);
+    _musicQueueIndex = idx;
+    final target = _musicQueue[idx];
+
+    _setSnapshot(
+      AudioSessionSnapshot(
+        type: ListeningSessionType.music,
+        mediaId: target.mediaId,
+        title: target.title,
+        positionSeconds: 0,
+        queue: [for (final t in _musicQueue) t.mediaId],
+      ),
+    );
+    await _loadAudioForActive(
+      mediaId: target.mediaId,
+      type: ListeningSessionType.music,
+      overridePositionSeconds: 0,
+      seq: seq,
+      persistSessionAfterLoad: true,
+    );
+    if (_disposed || seq != _sequence || !_ready) return;
+    if (autoPlay) {
+      unawaited(_ensureAttemptRegistered());
+      unawaited(_audioPlayer?.play());
+    }
+  }
+
+  Future<void> nextTrack({bool autoAdvance = false}) async {
+    if (_disposed || !hasNext) return;
+    await _moveQueueTo(_musicQueueIndex + 1, autoPlay: _playing || autoAdvance);
+  }
+
+  Future<void> previousTrack() async {
+    if (_disposed || !hasPrevious) return;
+    await _moveQueueTo(_musicQueueIndex - 1, autoPlay: _playing);
+  }
+
+  Future<void> _moveQueueTo(int nextIndex, {required bool autoPlay}) async {
+    if (_disposed || nextIndex < 0 || nextIndex >= _musicQueue.length) return;
+    await _pauseAndSaveCurrentSession();
+    if (_disposed) return;
+
+    final seq = ++_sequence;
+    _activeType = ListeningSessionType.music;
+    _musicQueueIndex = nextIndex;
+    final target = _musicQueue[nextIndex];
+    _setSnapshot(
+      AudioSessionSnapshot(
+        type: ListeningSessionType.music,
+        mediaId: target.mediaId,
+        title: target.title,
+        positionSeconds: 0,
+        queue: [for (final t in _musicQueue) t.mediaId],
+      ),
+    );
+    await _loadAudioForActive(
+      mediaId: target.mediaId,
+      type: ListeningSessionType.music,
+      overridePositionSeconds: 0,
+      seq: seq,
+      persistSessionAfterLoad: true,
+    );
+    if (_disposed || seq != _sequence || !_ready) return;
+    if (autoPlay) {
+      unawaited(_ensureAttemptRegistered());
+      unawaited(_audioPlayer?.play());
+    }
   }
 
   /// Switches between Music and Podcast sessions (BR-07).
@@ -480,6 +607,14 @@ class PlayerCoordinator extends ChangeNotifier {
             _tracker?.cutSegment(_seconds(total), _now());
             _stopReportTimer();
             unawaited(_flushProgress(_seconds(total)));
+            if (hasNext && !_autoAdvancing) {
+              _autoAdvancing = true;
+              unawaited(
+                nextTrack(autoAdvance: true).whenComplete(() {
+                  _autoAdvancing = false;
+                }),
+              );
+            }
           }
 
           _ready = true;
@@ -727,6 +862,7 @@ class PlayerCoordinator extends ChangeNotifier {
       await playbackRepository.createAttempt(
         attemptId: tracker.attemptId,
         mediaId: mediaId,
+        playlistItemId: activePlaylistItemId,
       );
       _attemptRegistered = true;
       return true;

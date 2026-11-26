@@ -5,6 +5,7 @@ import com.omniplay.dto.request.CreatePlaylistRequest;
 import com.omniplay.dto.request.RenamePlaylistRequest;
 import com.omniplay.dto.response.PageResponse;
 import com.omniplay.dto.response.PlaylistDetailResponse;
+import com.omniplay.dto.response.PlaylistItemAddedResponse;
 import com.omniplay.dto.response.PlaylistRenamedResponse;
 import com.omniplay.dto.response.PlaylistSummaryResponse;
 import java.util.UUID;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -67,6 +69,29 @@ public class PlaylistController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable String id) {
         service.delete(UUID.fromString(jwt.getSubject()), input.uuid(id, "id"));
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/items/{mediaId}")
+    public PlaylistItemAddedResponse addItem(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String id,
+            @PathVariable String mediaId) {
+        return service.addItem(
+                UUID.fromString(jwt.getSubject()),
+                input.uuid(id, "id"),
+                input.uuid(mediaId, "mediaId"));
+    }
+
+    @DeleteMapping("/{id}/items/{mediaId}")
+    public ResponseEntity<Void> removeItem(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String id,
+            @PathVariable String mediaId) {
+        service.removeItem(
+                UUID.fromString(jwt.getSubject()),
+                input.uuid(id, "id"),
+                input.uuid(mediaId, "mediaId"));
         return ResponseEntity.noContent().build();
     }
 }

@@ -83,6 +83,8 @@ class _CatalogSessionState extends State<CatalogSession> {
           repository: widget.repository,
           savedRepository: widget.savedRepository,
           onSavedChanged: () => unawaited(_savedViewModel.refresh()),
+          playlistRepository: widget.playlistRepository,
+          onPlaylistsChanged: () => unawaited(_playlistsViewModel.refresh()),
           id: id,
           type: type,
           genres: const [],
@@ -99,7 +101,8 @@ class _CatalogSessionState extends State<CatalogSession> {
         builder: (_) => PlaylistDetailScreen(
           repository: widget.playlistRepository,
           playlistId: playlistId,
-          onOpenMusic: _openDetail,
+          playerCoordinator: _coordinator,
+          onChanged: () => unawaited(_playlistsViewModel.refresh()),
         ),
       ),
     );
@@ -124,6 +127,9 @@ class _CatalogSessionState extends State<CatalogSession> {
                       savedRepository: widget.savedRepository,
                       onSavedChanged: () =>
                           unawaited(_savedViewModel.refresh()),
+                      playlistRepository: widget.playlistRepository,
+                      onPlaylistsChanged: () =>
+                          unawaited(_playlistsViewModel.refresh()),
                       createViewModel: widget.createViewModel,
                       createPlayerViewModel: widget.createPlayerViewModel,
                       playerCoordinator: _coordinator,
@@ -196,6 +202,8 @@ class CatalogScreen extends StatefulWidget {
     required this.repository,
     required this.savedRepository,
     required this.onSavedChanged,
+    required this.playlistRepository,
+    required this.onPlaylistsChanged,
     required this.createViewModel,
     required this.createPlayerViewModel,
     required this.playerCoordinator,
@@ -204,6 +212,8 @@ class CatalogScreen extends StatefulWidget {
   final CatalogRepository repository;
   final SavedRepository savedRepository;
   final VoidCallback onSavedChanged;
+  final PlaylistRepository playlistRepository;
+  final VoidCallback onPlaylistsChanged;
   final CatalogViewModel Function() createViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator playerCoordinator;
@@ -434,6 +444,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                   widget.onSavedChanged();
                                   unawaited(_viewModel.retry());
                                 },
+                                playlistRepository: widget.playlistRepository,
+                                onPlaylistsChanged: widget.onPlaylistsChanged,
                                 id: item.id,
                                 type: item.type,
                                 genres: state.genres,
