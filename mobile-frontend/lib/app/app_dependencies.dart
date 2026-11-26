@@ -20,6 +20,8 @@ import '../features/playback/data/playback_repository.dart';
 import '../features/playback/presentation/media_player_view_model.dart';
 import '../features/playback/presentation/playback_lifecycle_coordinator.dart';
 import '../features/playback/presentation/player_coordinator.dart';
+import '../features/saved/data/saved_repository.dart';
+import '../features/saved/presentation/saved_view_model.dart';
 import '../features/catalog/models/content_type.dart';
 
 class AppDependencies {
@@ -55,6 +57,7 @@ class AppDependencies {
       refresh: refresh,
     );
     listeningSessionRepository = RemoteListeningSessionRepository(apiClient);
+    savedRepository = RemoteSavedRepository(apiClient);
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -67,6 +70,7 @@ class AppDependencies {
   late final CatalogRepository catalogRepository;
   late final PlaybackRepository playbackRepository;
   late final ListeningSessionRepository listeningSessionRepository;
+  late final SavedRepository savedRepository;
   late final PlaybackLifecycleCoordinator playbackLifecycleCoordinator;
   late final ConnectionViewModel connectionViewModel;
 
@@ -76,6 +80,7 @@ class AppDependencies {
       RegisterViewModel(authRepository);
   CatalogViewModel createCatalogViewModel() =>
       CatalogViewModel(catalogRepository);
+  SavedViewModel createSavedViewModel() => SavedViewModel(savedRepository);
   PlayerCoordinator createPlayerCoordinator() => PlayerCoordinator(
     playbackRepository: playbackRepository,
     sessionRepository: listeningSessionRepository,

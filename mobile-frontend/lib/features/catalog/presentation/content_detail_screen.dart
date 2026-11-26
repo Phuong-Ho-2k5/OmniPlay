@@ -7,6 +7,7 @@ import '../../playback/presentation/coordinated_audio_player_widget.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/media_player_widget.dart';
 import '../../playback/presentation/player_coordinator.dart';
+import '../../saved/data/saved_repository.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import '../models/genre.dart';
@@ -20,6 +21,8 @@ class ContentDetailScreen extends StatefulWidget {
     required this.id,
     required this.type,
     required this.genres,
+    this.savedRepository,
+    this.onSavedChanged,
     this.createPlayerViewModel,
     this.playerCoordinator,
   });
@@ -27,6 +30,8 @@ class ContentDetailScreen extends StatefulWidget {
   final String id;
   final ContentType type;
   final List<Genre> genres;
+  final SavedRepository? savedRepository;
+  final VoidCallback? onSavedChanged;
   final MediaPlayerViewModel Function({
     required String mediaId,
     required ContentType type,
@@ -45,11 +50,21 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _viewModel = ContentDetailViewModel(widget.repository);
+    _viewModel = ContentDetailViewModel(
+      widget.repository,
+      savedRepository: widget.savedRepository,
+    );
     unawaited(_reload());
   }
 
   Future<void> _reload() => _viewModel.load(id: widget.id, type: widget.type);
+
+  Future<void> _toggleSaved() async {
+    final result = await _viewModel.toggleSaved();
+    if (result != null) {
+      widget.onSavedChanged?.call();
+    }
+  }
 
   Future<void> _handleExit() async {
     if (_exiting) return;
@@ -77,6 +92,29 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         title: Text(
           widget.type == ContentType.post ? 'Bài viết' : 'Chi tiết nội dung',
         ),
+        actions: [
+          if (widget.savedRepository != null)
+            ListenableBuilder(
+              listenable: _viewModel,
+              builder: (context, _) {
+                final detail = _viewModel.state.detail;
+                if (detail == null) return const SizedBox.shrink();
+                final saved = detail.summary.saved;
+                final saving = _viewModel.state.saving;
+                return IconButton(
+                  tooltip: saved ? 'Bỏ lưu' : 'Lưu nội dung',
+                  onPressed: saving ? null : () => unawaited(_toggleSaved()),
+                  icon: saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: ListenableBuilder(
@@ -184,6 +222,18 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 12),
+                      if (state.saveError != null) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            state.saveError!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ),
+                      ],
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -200,10 +250,26 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      SelectableText(
-                        detail.content ?? item.description ?? 'Chưa có mô tả.',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
+                      if (item.type == ContentType.post)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: SelectableText(
+                              detail.content ??
+                                  item.description ??
+                                  'Chưa có nội dung bài viết.',
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(height: 1.6),
+                            ),
+                          ),
+                        )
+                      else
+                        SelectableText(
+                          detail.content ??
+                              item.description ??
+                              'Chưa có mô tả.',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
                     ],
                   ),
                 ),

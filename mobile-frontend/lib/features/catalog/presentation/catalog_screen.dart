@@ -5,6 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/mini_player_bar.dart';
 import '../../playback/presentation/player_coordinator.dart';
+import '../../saved/data/saved_repository.dart';
+import '../../saved/presentation/saved_screen.dart';
+import '../../saved/presentation/saved_view_model.dart';
 import '../data/catalog_repository.dart';
 import '../models/content_type.dart';
 import 'catalog_view_model.dart';
@@ -17,18 +20,22 @@ typedef PlayerViewModelFactory = MediaPlayerViewModel Function({
   Future<void> Function()? onBeforeVideoPlay,
 });
 
-/// A session owns its entire navigation stack, including detail routes and mini player.
+/// A session owns its entire navigation stack, including detail routes, tabs, and mini player.
 class CatalogSession extends StatefulWidget {
   const CatalogSession({
     super.key,
     required this.repository,
+    required this.savedRepository,
     required this.createViewModel,
+    required this.createSavedViewModel,
     required this.createPlayerViewModel,
     required this.createPlayerCoordinator,
     required this.onLogout,
   });
   final CatalogRepository repository;
+  final SavedRepository savedRepository;
   final CatalogViewModel Function() createViewModel;
+  final SavedViewModel Function() createSavedViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator Function() createPlayerCoordinator;
   final VoidCallback onLogout;
@@ -39,18 +46,40 @@ class CatalogSession extends StatefulWidget {
 class _CatalogSessionState extends State<CatalogSession> {
   final _navigator = GlobalKey<NavigatorState>();
   late final PlayerCoordinator _coordinator;
+  late final SavedViewModel _savedViewModel;
+  final ValueNotifier<int> _tabIndex = ValueNotifier<int>(0);
 
   @override
   void initState() {
     super.initState();
     _coordinator = widget.createPlayerCoordinator();
+    _savedViewModel = widget.createSavedViewModel();
     unawaited(_coordinator.restoreSessions());
   }
 
   @override
   void dispose() {
+    _tabIndex.dispose();
+    _savedViewModel.dispose();
     _coordinator.dispose();
     super.dispose();
+  }
+
+  void _openDetail(String id, ContentType type) {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => ContentDetailScreen(
+          repository: widget.repository,
+          savedRepository: widget.savedRepository,
+          onSavedChanged: () => unawaited(_savedViewModel.refresh()),
+          id: id,
+          type: type,
+          genres: const [],
+          createPlayerViewModel: widget.createPlayerViewModel,
+          playerCoordinator: _coordinator,
+        ),
+      ),
+    );
   }
 
   @override
@@ -62,29 +91,63 @@ class _CatalogSessionState extends State<CatalogSession> {
           child: Navigator(
             key: _navigator,
             onGenerateRoute: (_) => MaterialPageRoute<void>(
-              builder: (_) => CatalogScreen(
-                repository: widget.repository,
-                createViewModel: widget.createViewModel,
-                createPlayerViewModel: widget.createPlayerViewModel,
-                playerCoordinator: _coordinator,
-                onLogout: widget.onLogout,
+              builder: (_) => ValueListenableBuilder<int>(
+                valueListenable: _tabIndex,
+                builder: (context, index, _) => IndexedStack(
+                  index: index,
+                  children: [
+                    CatalogScreen(
+                      repository: widget.repository,
+                      savedRepository: widget.savedRepository,
+                      onSavedChanged: () =>
+                          unawaited(_savedViewModel.refresh()),
+                      createViewModel: widget.createViewModel,
+                      createPlayerViewModel: widget.createPlayerViewModel,
+                      playerCoordinator: _coordinator,
+                      onLogout: widget.onLogout,
+                    ),
+                    SavedScreen(
+                      viewModel: _savedViewModel,
+                      catalogRepository: widget.repository,
+                      onOpenItem: _openDetail,
+                      onLogout: widget.onLogout,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
         MiniPlayerBar(
           coordinator: _coordinator,
-          onOpenDetail: (mediaId, sessionType) => _navigator.currentState?.push(
-            MaterialPageRoute<void>(
-              builder: (_) => ContentDetailScreen(
-                repository: widget.repository,
-                id: mediaId,
-                type: sessionType.contentType,
-                genres: const [],
-                createPlayerViewModel: widget.createPlayerViewModel,
-                playerCoordinator: _coordinator,
+          onOpenDetail: (mediaId, sessionType) =>
+              _openDetail(mediaId, sessionType.contentType),
+        ),
+        ValueListenableBuilder<int>(
+          valueListenable: _tabIndex,
+          builder: (context, index, _) => NavigationBar(
+            selectedIndex: index,
+            onDestinationSelected: (next) {
+              if (_navigator.currentState?.canPop() ?? false) {
+                _navigator.currentState!.popUntil((route) => route.isFirst);
+              }
+              _tabIndex.value = next;
+              if (next == 1) {
+                unawaited(_savedViewModel.refresh());
+              }
+            },
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.explore_outlined),
+                selectedIcon: Icon(Icons.explore),
+                label: 'Khám phá',
               ),
-            ),
+              NavigationDestination(
+                icon: Icon(Icons.bookmark_border),
+                selectedIcon: Icon(Icons.bookmark),
+                label: 'Đã lưu',
+              ),
+            ],
           ),
         ),
       ],
@@ -96,12 +159,16 @@ class CatalogScreen extends StatefulWidget {
   const CatalogScreen({
     super.key,
     required this.repository,
+    required this.savedRepository,
+    required this.onSavedChanged,
     required this.createViewModel,
     required this.createPlayerViewModel,
     required this.playerCoordinator,
     required this.onLogout,
   });
   final CatalogRepository repository;
+  final SavedRepository savedRepository;
+  final VoidCallback onSavedChanged;
   final CatalogViewModel Function() createViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator playerCoordinator;
@@ -327,6 +394,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             MaterialPageRoute<void>(
                               builder: (_) => ContentDetailScreen(
                                 repository: widget.repository,
+                                savedRepository: widget.savedRepository,
+                                onSavedChanged: () {
+                                  widget.onSavedChanged();
+                                  unawaited(_viewModel.retry());
+                                },
                                 id: item.id,
                                 type: item.type,
                                 genres: state.genres,

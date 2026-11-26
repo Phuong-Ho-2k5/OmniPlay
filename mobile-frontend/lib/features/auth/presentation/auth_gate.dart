@@ -62,7 +62,9 @@ class AuthGate extends StatelessWidget {
           : CatalogSession(
               key: ValueKey(sessions.generation),
               repository: dependencies.catalogRepository,
+              savedRepository: dependencies.savedRepository,
               createViewModel: dependencies.createCatalogViewModel,
+              createSavedViewModel: dependencies.createSavedViewModel,
               createPlayerViewModel: dependencies.createMediaPlayerViewModel,
               createPlayerCoordinator: dependencies.createPlayerCoordinator,
               onLogout: () => unawaited(sessions.logout()),
