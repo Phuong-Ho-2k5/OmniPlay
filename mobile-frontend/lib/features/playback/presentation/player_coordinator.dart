@@ -98,6 +98,7 @@ class PlayerCoordinator extends ChangeNotifier {
   StreamAuthRequest? _activeAuth;
   PlaybackSegmentTracker? _tracker;
   bool _attemptRegistered = false;
+  bool _skipSentForAttempt = false;
   bool _flushing = false;
   double? _queuedResumeSeconds;
   Future<void>? _activeFlush;
@@ -324,7 +325,40 @@ class PlayerCoordinator extends ChangeNotifier {
 
   Future<void> nextTrack({bool autoAdvance = false}) async {
     if (_disposed || !hasNext) return;
+    final shouldRecordSkip =
+        !autoAdvance &&
+        _ready &&
+        activePlaylistItemId != null &&
+        _errorMessage == null &&
+        !_isAudioCompleted() &&
+        !_skipSentForAttempt;
+    if (shouldRecordSkip) {
+      await _recordValidSkipBestEffort();
+      if (_disposed) return;
+    }
     await _moveQueueTo(_musicQueueIndex + 1, autoPlay: _playing || autoAdvance);
+  }
+
+  bool _isAudioCompleted() {
+    final player = _audioPlayer;
+    if (player != null && player.processingState == ProcessingState.completed) {
+      return true;
+    }
+    return _duration > Duration.zero && _position >= _duration;
+  }
+
+  Future<void> _recordValidSkipBestEffort() async {
+    final tracker = _tracker;
+    if (tracker == null || _skipSentForAttempt) return;
+    _skipSentForAttempt = true;
+    try {
+      if (!await _ensureAttemptRegistered()) return;
+      await playbackRepository
+          .recordSkip(attemptId: tracker.attemptId)
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Best-effort: network or server failure must not block advancing to the next track.
+    }
   }
 
   Future<void> previousTrack() async {
@@ -459,6 +493,7 @@ class PlayerCoordinator extends ChangeNotifier {
         durationSeconds: metadata.durationSeconds,
       );
       _attemptRegistered = false;
+      _skipSentForAttempt = false;
       _coveredSeconds = metadata.coveredSeconds;
       _completed = metadata.completed;
 

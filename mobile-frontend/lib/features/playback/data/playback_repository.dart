@@ -22,6 +22,7 @@ abstract class PlaybackRepository {
     required String mediaId,
     required PlaybackReport report,
   });
+  Future<PlaybackSkipResult> recordSkip({required String attemptId});
 }
 
 class RemotePlaybackRepository implements PlaybackRepository {
@@ -106,5 +107,16 @@ class RemotePlaybackRepository implements PlaybackRepository {
       expectedStatusCode: 200,
     );
     return PlaybackProgressResult.fromJson(json);
+  }
+
+  @override
+  Future<PlaybackSkipResult> recordSkip({required String attemptId}) async {
+    catalogId(attemptId);
+    final json = await _api.postJson(
+      '/me/playback-skips',
+      body: {'attemptId': attemptId},
+      expectedStatusCode: 200,
+    );
+    return PlaybackSkipResult.fromJson(json);
   }
 }

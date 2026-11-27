@@ -110,3 +110,36 @@ class PlaybackProgressResult {
     );
   }
 }
+
+class PlaybackSkipResult {
+  const PlaybackSkipResult({
+    required this.playlistItemId,
+    required this.skipCount,
+    required this.suggestionVisible,
+    required this.recorded,
+  });
+
+  final String? playlistItemId;
+  final int skipCount;
+  final bool suggestionVisible;
+  final bool recorded;
+
+  factory PlaybackSkipResult.fromJson(Map<String, dynamic> json) {
+    final rawItem = json['playlistItemId'];
+    final skipCount = json['skipCount'];
+    final suggestionVisible = json['suggestionVisible'];
+    final recorded = json['recorded'];
+    if (skipCount is! int ||
+        skipCount < 0 ||
+        suggestionVisible is! bool ||
+        recorded is! bool) {
+      invalidCatalogResponse();
+    }
+    return PlaybackSkipResult(
+      playlistItemId: rawItem == null ? null : catalogId(rawItem),
+      skipCount: skipCount,
+      suggestionVisible: suggestionVisible,
+      recorded: recorded,
+    );
+  }
+}
