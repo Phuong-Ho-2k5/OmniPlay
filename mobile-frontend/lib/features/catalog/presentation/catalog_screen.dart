@@ -10,6 +10,11 @@ import '../../playlist/presentation/cleanup_suggestions_screen.dart';
 import '../../playlist/presentation/playlist_detail_screen.dart';
 import '../../playlist/presentation/playlists_screen.dart';
 import '../../playlist/presentation/playlists_view_model.dart';
+import '../../quest/data/quest_repository.dart';
+import '../../quest/models/daily_quest.dart';
+import '../../quest/presentation/quest_media_screen.dart';
+import '../../quest/presentation/quests_screen.dart';
+import '../../quest/presentation/quests_view_model.dart';
 import '../../saved/data/saved_repository.dart';
 import '../../saved/presentation/saved_screen.dart';
 import '../../saved/presentation/saved_view_model.dart';
@@ -32,9 +37,11 @@ class CatalogSession extends StatefulWidget {
     required this.repository,
     required this.savedRepository,
     required this.playlistRepository,
+    required this.questRepository,
     required this.createViewModel,
     required this.createSavedViewModel,
     required this.createPlaylistsViewModel,
+    required this.createQuestsViewModel,
     required this.createPlayerViewModel,
     required this.createPlayerCoordinator,
     required this.onLogout,
@@ -42,9 +49,11 @@ class CatalogSession extends StatefulWidget {
   final CatalogRepository repository;
   final SavedRepository savedRepository;
   final PlaylistRepository playlistRepository;
+  final QuestRepository questRepository;
   final CatalogViewModel Function() createViewModel;
   final SavedViewModel Function() createSavedViewModel;
   final PlaylistsViewModel Function() createPlaylistsViewModel;
+  final QuestsViewModel Function() createQuestsViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator Function() createPlayerCoordinator;
   final VoidCallback onLogout;
@@ -57,6 +66,7 @@ class _CatalogSessionState extends State<CatalogSession> {
   late final PlayerCoordinator _coordinator;
   late final SavedViewModel _savedViewModel;
   late final PlaylistsViewModel _playlistsViewModel;
+  late final QuestsViewModel _questsViewModel;
   final ValueNotifier<int> _tabIndex = ValueNotifier<int>(0);
 
   @override
@@ -65,12 +75,14 @@ class _CatalogSessionState extends State<CatalogSession> {
     _coordinator = widget.createPlayerCoordinator();
     _savedViewModel = widget.createSavedViewModel();
     _playlistsViewModel = widget.createPlaylistsViewModel();
+    _questsViewModel = widget.createQuestsViewModel();
     unawaited(_coordinator.restoreSessions());
   }
 
   @override
   void dispose() {
     _tabIndex.dispose();
+    _questsViewModel.dispose();
     _playlistsViewModel.dispose();
     _savedViewModel.dispose();
     _coordinator.dispose();
@@ -123,6 +135,19 @@ class _CatalogSessionState extends State<CatalogSession> {
     );
   }
 
+  void _openQuestMedia(DailyQuest quest) {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => QuestMediaScreen(
+          quest: quest,
+          questRepository: widget.questRepository,
+          catalogRepository: widget.repository,
+          onOpenItem: _openDetail,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => NavigatorPopHandler<void>(
     onPopWithResult: (_) => _navigator.currentState!.pop(),
@@ -162,6 +187,11 @@ class _CatalogSessionState extends State<CatalogSession> {
                       onOpenCleanupSuggestions: _openCleanupSuggestions,
                       onLogout: widget.onLogout,
                     ),
+                    QuestsScreen(
+                      viewModel: _questsViewModel,
+                      onOpenQuestMedia: _openQuestMedia,
+                      onLogout: widget.onLogout,
+                    ),
                   ],
                 ),
               ),
@@ -186,6 +216,8 @@ class _CatalogSessionState extends State<CatalogSession> {
                 unawaited(_savedViewModel.refresh());
               } else if (next == 2) {
                 unawaited(_playlistsViewModel.refresh());
+              } else if (next == 3) {
+                unawaited(_questsViewModel.ensureToday());
               }
             },
             destinations: const [
@@ -203,6 +235,11 @@ class _CatalogSessionState extends State<CatalogSession> {
                 icon: Icon(Icons.queue_music_outlined),
                 selectedIcon: Icon(Icons.queue_music),
                 label: 'Playlist',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.emoji_events_outlined),
+                selectedIcon: Icon(Icons.emoji_events),
+                label: 'Quest',
               ),
             ],
           ),
