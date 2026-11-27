@@ -6,6 +6,7 @@ import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/mini_player_bar.dart';
 import '../../playback/presentation/player_coordinator.dart';
 import '../../playlist/data/playlist_repository.dart';
+import '../../playlist/presentation/cleanup_suggestions_screen.dart';
 import '../../playlist/presentation/playlist_detail_screen.dart';
 import '../../playlist/presentation/playlists_screen.dart';
 import '../../playlist/presentation/playlists_view_model.dart';
@@ -108,6 +109,20 @@ class _CatalogSessionState extends State<CatalogSession> {
     );
   }
 
+  void _openCleanupSuggestions() {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => CleanupSuggestionsScreen(
+          repository: widget.playlistRepository,
+          playlistNames: {
+            for (final p in _playlistsViewModel.state.items) p.id: p.name,
+          },
+          onChanged: () => unawaited(_playlistsViewModel.refresh()),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => NavigatorPopHandler<void>(
     onPopWithResult: (_) => _navigator.currentState!.pop(),
@@ -144,6 +159,7 @@ class _CatalogSessionState extends State<CatalogSession> {
                     PlaylistsScreen(
                       viewModel: _playlistsViewModel,
                       onOpenPlaylist: _openPlaylist,
+                      onOpenCleanupSuggestions: _openCleanupSuggestions,
                       onLogout: widget.onLogout,
                     ),
                   ],

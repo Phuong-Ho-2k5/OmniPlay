@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../catalog/models/catalog_json.dart';
+import '../models/cleanup_suggestion.dart';
 import '../models/playlist.dart';
 
 abstract class PlaylistRepository {
@@ -18,6 +19,11 @@ abstract class PlaylistRepository {
   Future<void> removeItem({
     required String playlistId,
     required String mediaId,
+  });
+  Future<List<CleanupSuggestionItem>> fetchCleanupSuggestions();
+  Future<CleanupActionResult> applyCleanupAction({
+    required String playlistItemId,
+    required CleanupAction action,
   });
 }
 
@@ -106,5 +112,30 @@ class RemotePlaylistRepository implements PlaylistRepository {
     catalogId(playlistId);
     catalogId(mediaId);
     await _api.deleteNoContent('/me/playlists/$playlistId/items/$mediaId');
+  }
+
+  @override
+  Future<List<CleanupSuggestionItem>> fetchCleanupSuggestions() async {
+    final json = await _api.getJson(
+      '/me/cleanup-suggestions',
+      expectedStatusCode: 200,
+    );
+    return catalogList(json['items'])
+        .map((item) => CleanupSuggestionItem.fromJson(catalogObject(item)))
+        .toList();
+  }
+
+  @override
+  Future<CleanupActionResult> applyCleanupAction({
+    required String playlistItemId,
+    required CleanupAction action,
+  }) async {
+    catalogId(playlistItemId);
+    final json = await _api.patchJson(
+      '/me/cleanup-suggestions/$playlistItemId',
+      body: {'action': action.wireValue},
+      expectedStatusCode: 200,
+    );
+    return CleanupActionResult.fromJson(json);
   }
 }

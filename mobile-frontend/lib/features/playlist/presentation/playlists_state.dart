@@ -8,6 +8,7 @@ class PlaylistsState {
     required this.page,
     required this.size,
     required this.totalElements,
+    this.cleanupSuggestionCount = 0,
     this.message,
     this.moreMessage,
     this.actionError,
@@ -19,6 +20,7 @@ class PlaylistsState {
   final int page;
   final int size;
   final int totalElements;
+  final int cleanupSuggestionCount;
   final String? message;
   final String? moreMessage;
   final String? actionError;

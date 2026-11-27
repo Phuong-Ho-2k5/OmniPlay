@@ -15,6 +15,7 @@ class PlaylistsViewModel extends ChangeNotifier {
   int _sequence = 0;
   int _page = -1;
   int _total = 0;
+  int _cleanupSuggestionCount = 0;
   bool _loading = false;
   bool _loadingMore = false;
   bool _disposed = false;
@@ -29,6 +30,7 @@ class PlaylistsViewModel extends ChangeNotifier {
     page: _page,
     size: _pageSize,
     totalElements: _total,
+    cleanupSuggestionCount: _cleanupSuggestionCount,
     message: _message,
     moreMessage: _moreMessage,
     actionError: _actionError,
@@ -69,6 +71,16 @@ class PlaylistsViewModel extends ChangeNotifier {
       _total = response.totalElements;
       _message = null;
       _moreMessage = null;
+      if (page == 0) {
+        try {
+          final suggestions = await _repository.fetchCleanupSuggestions();
+          if (!_disposed && sequence == _sequence) {
+            _cleanupSuggestionCount = suggestions.length;
+          }
+        } catch (_) {
+          // Non-fatal: playlist list still renders even if cleanup count fails.
+        }
+      }
     } catch (error) {
       if (_disposed || sequence != _sequence) return;
       if (page == 0) {

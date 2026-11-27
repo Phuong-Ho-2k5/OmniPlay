@@ -13,11 +13,13 @@ class PlaylistsScreen extends StatefulWidget {
     super.key,
     required this.viewModel,
     required this.onOpenPlaylist,
+    required this.onOpenCleanupSuggestions,
     required this.onLogout,
   });
 
   final PlaylistsViewModel viewModel;
   final void Function(String playlistId) onOpenPlaylist;
+  final VoidCallback onOpenCleanupSuggestions;
   final VoidCallback onLogout;
 
   @override
@@ -92,6 +94,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     appBar: AppBar(
       title: const Text('Playlist'),
       actions: [
+        IconButton(
+          tooltip: 'Dọn playlist',
+          icon: const Icon(Icons.cleaning_services_outlined),
+          onPressed: widget.onOpenCleanupSuggestions,
+        ),
         IconButton(
           tooltip: 'Tải lại',
           icon: const Icon(Icons.refresh),
@@ -171,6 +178,24 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                     trailing: TextButton(
                       onPressed: () => unawaited(widget.viewModel.refresh()),
                       child: const Text('Thử lại'),
+                    ),
+                  ),
+                ),
+              if (state.cleanupSuggestionCount > 0)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: Card(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      child: ListTile(
+                        leading: const Icon(Icons.cleaning_services_outlined),
+                        title: const Text('Gợi ý dọn playlist'),
+                        subtitle: Text(
+                          'Có ${state.cleanupSuggestionCount} bài nhạc bị bỏ qua từ 6 lần trở lên.',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: widget.onOpenCleanupSuggestions,
+                      ),
                     ),
                   ),
                 ),
