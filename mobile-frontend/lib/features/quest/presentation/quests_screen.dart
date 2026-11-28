@@ -17,6 +17,21 @@ class QuestsScreen extends StatelessWidget {
   final void Function(DailyQuest quest) onOpenQuestMedia;
   final VoidCallback onLogout;
 
+  Future<void> _handleClaim(BuildContext context, DailyQuest quest) async {
+    final result = await viewModel.claimQuest(quest);
+    if (!context.mounted || result == null) return;
+    final parts = <String>[
+      if (result.xpAwarded > 0)
+        'Nhận +${result.xpAwarded} XP (Tổng ${result.totalXp} XP • Level ${result.level})'
+      else
+        'Quest đã được nhận thưởng trước đó (Tổng ${result.totalXp} XP • Level ${result.level})',
+      if (result.newBadges.isNotEmpty)
+        'Mở khóa huy hiệu: ${result.newBadges.map((b) => b.name).join(', ')}',
+    ];
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(parts.join(' • '))));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -79,6 +94,18 @@ class QuestsScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 if (state.loading) const LinearProgressIndicator(),
+                if (state.notice != null) ...[
+                  MaterialBanner(
+                    content: Text(state.notice!),
+                    actions: [
+                      TextButton(
+                        onPressed: viewModel.clearNotice,
+                        child: const Text('Đóng'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 if (state.message != null) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -112,6 +139,17 @@ class QuestsScreen extends StatelessWidget {
                                   color: theme.colorScheme.onPrimaryContainer,
                                 ),
                               ),
+                              if (state.latestTotalXp != null &&
+                                  state.latestLevel != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Level ${state.latestLevel} • ${state.latestTotalXp} XP',
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 'Hết hạn lúc 00:00 ngày kế tiếp (giờ Việt Nam).',
@@ -135,7 +173,10 @@ class QuestsScreen extends StatelessWidget {
                 for (final quest in questSet.quests) ...[
                   _QuestCard(
                     quest: quest,
+                    claiming: state.isClaiming(quest.id),
+                    claimError: state.claimErrorFor(quest.id),
                     onOpenMedia: () => onOpenQuestMedia(quest),
+                    onClaim: () => unawaited(_handleClaim(context, quest)),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -149,10 +190,19 @@ class QuestsScreen extends StatelessWidget {
 }
 
 class _QuestCard extends StatelessWidget {
-  const _QuestCard({required this.quest, required this.onOpenMedia});
+  const _QuestCard({
+    required this.quest,
+    required this.claiming,
+    required this.claimError,
+    required this.onOpenMedia,
+    required this.onClaim,
+  });
 
   final DailyQuest quest;
+  final bool claiming;
+  final String? claimError;
   final VoidCallback onOpenMedia;
+  final VoidCallback onClaim;
 
   @override
   Widget build(BuildContext context) {
@@ -194,11 +244,12 @@ class _QuestCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Text(
-                  '${quest.progressCount}/${quest.targetCount} • ${quest.status.label}',
-                  style: theme.textTheme.bodySmall,
+                Expanded(
+                  child: Text(
+                    '${quest.progressCount}/${quest.targetCount} • ${quest.status.label}',
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
-                const Spacer(),
                 TextButton.icon(
                   onPressed: onOpenMedia,
                   icon: const Icon(Icons.playlist_play, size: 18),
@@ -206,6 +257,60 @@ class _QuestCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (claimError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                claimError!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            if (quest.status == QuestStatus.claimable) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: claiming ? null : onClaim,
+                  child: claiming
+                      ? const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('Đang nhận thưởng...'),
+                          ],
+                        )
+                      : Text(
+                          claimError != null
+                              ? 'Thử nhận lại (+${quest.xpReward} XP)'
+                              : 'Nhận +${quest.xpReward} XP',
+                        ),
+                ),
+              ),
+            ] else if (quest.status == QuestStatus.claimed) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Đã nhận thưởng',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

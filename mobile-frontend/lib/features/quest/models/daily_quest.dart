@@ -157,3 +157,62 @@ class DailyQuestSet {
     );
   }
 }
+
+class UnlockedBadge {
+  const UnlockedBadge({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.xpThreshold,
+    required this.awardedAt,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final int xpThreshold;
+  final DateTime awardedAt;
+
+  factory UnlockedBadge.fromJson(Map<String, dynamic> json) {
+    final awardedAt = DateTime.tryParse(catalogString(json['awardedAt']))
+        ?.toUtc();
+    if (awardedAt == null) invalidCatalogResponse();
+    return UnlockedBadge(
+      id: catalogId(json['id']),
+      name: catalogString(json['name']),
+      description: catalogString(json['description']),
+      xpThreshold: catalogInt(json['xpThreshold'], min: 1),
+      awardedAt: awardedAt,
+    );
+  }
+}
+
+class ClaimQuestResult {
+  ClaimQuestResult({
+    required this.questId,
+    required this.status,
+    required this.xpAwarded,
+    required this.totalXp,
+    required this.level,
+    required List<UnlockedBadge> newBadges,
+  }) : newBadges = List.unmodifiable(newBadges);
+
+  final String questId;
+  final QuestStatus status;
+  final int xpAwarded;
+  final int totalXp;
+  final int level;
+  final List<UnlockedBadge> newBadges;
+
+  factory ClaimQuestResult.fromJson(Map<String, dynamic> json) =>
+      ClaimQuestResult(
+        questId: catalogId(json['questId']),
+        status: QuestStatus.fromWire(json['status']),
+        xpAwarded: catalogInt(json['xpAwarded']),
+        totalXp: catalogInt(json['totalXp']),
+        level: catalogInt(json['level'], min: 1),
+        newBadges: catalogList(json['newBadges'])
+            .map((v) => UnlockedBadge.fromJson(catalogObject(v)))
+            .toList(),
+      );
+}

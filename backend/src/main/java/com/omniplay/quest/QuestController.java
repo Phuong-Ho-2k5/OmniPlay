@@ -4,6 +4,7 @@ import com.omniplay.catalog.CatalogInputValidator;
 import com.omniplay.dto.response.ContentSummaryResponse;
 import com.omniplay.dto.response.DailyQuestSetResponse;
 import com.omniplay.dto.response.PageResponse;
+import com.omniplay.dto.response.QuestClaimResponse;
 import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -18,10 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/me/quests")
 public class QuestController {
     private final QuestService service;
+    private final QuestClaimService claimService;
     private final CatalogInputValidator input;
 
-    public QuestController(QuestService service, CatalogInputValidator input) {
+    public QuestController(QuestService service, QuestClaimService claimService, CatalogInputValidator input) {
         this.service = service;
+        this.claimService = claimService;
         this.input = input;
     }
 
@@ -47,5 +50,14 @@ public class QuestController {
                 input.uuid(questId, "questId"),
                 query.page(),
                 query.size());
+    }
+
+    @PostMapping("/{questId}/claim")
+    public QuestClaimResponse claim(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String questId) {
+        return claimService.claim(
+                UUID.fromString(jwt.getSubject()),
+                input.uuid(questId, "questId"));
     }
 }

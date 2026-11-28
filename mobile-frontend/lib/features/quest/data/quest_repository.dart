@@ -11,6 +11,7 @@ abstract class QuestRepository {
     int page = 0,
     int size = 20,
   });
+  Future<ClaimQuestResult> claimQuest(String questId);
 }
 
 class RemoteQuestRepository implements QuestRepository {
@@ -54,5 +55,15 @@ class RemoteQuestRepository implements QuestRepository {
       invalidCatalogResponse();
     }
     return parsed;
+  }
+
+  @override
+  Future<ClaimQuestResult> claimQuest(String questId) async {
+    catalogId(questId);
+    final json = await _api.postJson(
+      '/me/quests/$questId/claim',
+      expectedStatusCode: 200,
+    );
+    return ClaimQuestResult.fromJson(json);
   }
 }

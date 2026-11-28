@@ -18,6 +18,8 @@ public enum ErrorCode {
     MEDIA_FILE_MISSING(HttpStatus.NOT_FOUND, "Không tìm thấy tệp media trên máy chủ."),
     ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy lượt phát phù hợp."),
     QUEST_SET_NOT_ISSUED(HttpStatus.NOT_FOUND, "Chưa có bộ Quest cho ngày hôm nay."),
+    QUEST_EXPIRED(HttpStatus.CONFLICT, "Quest chưa nhận thưởng đã hết hạn."),
+    QUEST_NOT_COMPLETED(HttpStatus.CONFLICT, "Quest chưa đủ điều kiện nhận thưởng."),
     REQUEST_CONFLICT(HttpStatus.CONFLICT, "Yêu cầu trùng mã nhưng khác dữ liệu ban đầu."),
     EVENT_CONFLICT(HttpStatus.CONFLICT, "Sự kiện phát trùng số thứ tự nhưng khác nội dung."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Máy chủ gặp lỗi xử lý."),
