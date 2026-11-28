@@ -8,6 +8,8 @@ import com.omniplay.dto.request.PlaybackReportRequest;
 import com.omniplay.dto.request.PlaybackSegmentRequest;
 import com.omniplay.dto.response.PlaybackAttemptResponse;
 import com.omniplay.dto.response.PlaybackProgressResponse;
+import com.omniplay.quest.QuestProgressEvaluator;
+import com.omniplay.quest.QuestProgressRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,13 +29,22 @@ public class PlaybackProgressService {
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(3);
 
     private final PlaybackProgressRepository repository;
+    private final QuestProgressRepository questProgressRepository;
+    private final QuestProgressEvaluator questProgressEvaluator;
     private final CatalogInputValidator validator;
     private final PlaybackProperties properties;
     private final Clock clock;
 
-    public PlaybackProgressService(PlaybackProgressRepository repository, CatalogInputValidator validator,
-            PlaybackProperties properties, Clock clock) {
+    public PlaybackProgressService(
+            PlaybackProgressRepository repository,
+            QuestProgressRepository questProgressRepository,
+            QuestProgressEvaluator questProgressEvaluator,
+            CatalogInputValidator validator,
+            PlaybackProperties properties,
+            Clock clock) {
         this.repository = repository;
+        this.questProgressRepository = questProgressRepository;
+        this.questProgressEvaluator = questProgressEvaluator;
         this.validator = validator;
         this.properties = properties;
         this.clock = clock;
@@ -106,9 +117,11 @@ public class PlaybackProgressService {
                 .orElseThrow(() -> new ApiException(ErrorCode.MEDIA_UNAVAILABLE));
         BigDecimal maxDuration = BigDecimal.valueOf(durationSeconds).setScale(3);
 
-        if (questSetId != null && !repository.questSetBelongsToUser(userId, questSetId)) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR,
-                    Map.of("questSetId", "Bộ Quest không hợp lệ hoặc không thuộc tài khoản hiện tại."));
+        QuestProgressRepository.QuestSetWindow questSet = null;
+        if (questSetId != null) {
+            questSet = questProgressRepository.findOwnedQuestSet(userId, questSetId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_ERROR,
+                            Map.of("questSetId", "Bộ Quest không hợp lệ hoặc không thuộc tài khoản hiện tại.")));
         }
 
         BigDecimal resumePosition = normalizeSeconds(request.resumePositionSeconds(), "resumePositionSeconds");
@@ -169,12 +182,17 @@ public class PlaybackProgressService {
 
         repository.updateProgress(progress.progressId(), resumePosition, coveredSeconds, completed, receivedAt);
 
+        List<PlaybackProgressResponse.QuestUpdate> questUpdates = questSet == null
+                ? List.of()
+                : questProgressEvaluator.evaluate(
+                        mediaId, progress.progressId(), durationSeconds, questSet, receivedAt);
+
         return new PlaybackProgressResponse(
                 mediaId,
                 strip(resumePosition),
                 strip(coveredSeconds),
                 completed,
-                List.of());
+                questUpdates);
     }
 
     private BigDecimal normalizeSeconds(BigDecimal value, String field) {

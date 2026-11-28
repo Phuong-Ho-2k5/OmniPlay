@@ -17,6 +17,7 @@ import '../features/catalog/data/catalog_repository.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
 import '../features/playback/data/listening_session_repository.dart';
 import '../features/playback/data/playback_repository.dart';
+import '../features/playback/models/playback_report.dart';
 import '../features/playback/presentation/media_player_view_model.dart';
 import '../features/playback/presentation/playback_lifecycle_coordinator.dart';
 import '../features/playback/presentation/player_coordinator.dart';
@@ -92,22 +93,31 @@ class AppDependencies {
   PlaylistsViewModel createPlaylistsViewModel() =>
       PlaylistsViewModel(playlistRepository);
   QuestsViewModel createQuestsViewModel() => QuestsViewModel(questRepository);
-  PlayerCoordinator createPlayerCoordinator() => PlayerCoordinator(
+  PlayerCoordinator createPlayerCoordinator({
+    String? Function(DateTime nowUtc)? activeQuestSetId,
+    void Function(List<QuestProgressUpdate> updates)? onQuestUpdates,
+  }) => PlayerCoordinator(
     playbackRepository: playbackRepository,
     sessionRepository: listeningSessionRepository,
     catalogRepository: catalogRepository,
     lifecycleCoordinator: playbackLifecycleCoordinator,
+    activeQuestSetId: activeQuestSetId,
+    onQuestUpdates: onQuestUpdates,
   );
   MediaPlayerViewModel createMediaPlayerViewModel({
     required String mediaId,
     required ContentType type,
     Future<void> Function()? onBeforeVideoPlay,
+    String? Function(DateTime nowUtc)? activeQuestSetId,
+    void Function(List<QuestProgressUpdate> updates)? onQuestUpdates,
   }) => MediaPlayerViewModel(
     repository: playbackRepository,
     mediaId: mediaId,
     type: type,
     lifecycleCoordinator: playbackLifecycleCoordinator,
     onBeforeVideoPlay: onBeforeVideoPlay,
+    activeQuestSetId: activeQuestSetId,
+    onQuestUpdates: onQuestUpdates,
   );
 
   void dispose() {

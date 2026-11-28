@@ -74,18 +74,39 @@ class PlaybackReport {
   };
 }
 
+class QuestProgressUpdate {
+  const QuestProgressUpdate({
+    required this.questId,
+    required this.progressCount,
+    required this.status,
+  });
+
+  final String questId;
+  final int progressCount;
+  final String status;
+
+  factory QuestProgressUpdate.fromJson(Map<String, dynamic> json) =>
+      QuestProgressUpdate(
+        questId: catalogId(json['questId']),
+        progressCount: catalogInt(json['progressCount']),
+        status: catalogString(json['status']),
+      );
+}
+
 class PlaybackProgressResult {
-  const PlaybackProgressResult({
+  PlaybackProgressResult({
     required this.mediaId,
     required this.resumePositionSeconds,
     required this.coveredSeconds,
     required this.completed,
-  });
+    List<QuestProgressUpdate> questUpdates = const [],
+  }) : questUpdates = List.unmodifiable(questUpdates);
 
   final String mediaId;
   final double resumePositionSeconds;
   final double coveredSeconds;
   final bool completed;
+  final List<QuestProgressUpdate> questUpdates;
 
   factory PlaybackProgressResult.fromJson(Map<String, dynamic> json) {
     final resume = json['resumePositionSeconds'];
@@ -102,11 +123,18 @@ class PlaybackProgressResult {
         completed is! bool) {
       invalidCatalogResponse();
     }
+    final rawUpdates = json['questUpdates'];
+    final updates = rawUpdates == null
+        ? const <QuestProgressUpdate>[]
+        : catalogList(rawUpdates)
+              .map((v) => QuestProgressUpdate.fromJson(catalogObject(v)))
+              .toList();
     return PlaybackProgressResult(
       mediaId: catalogId(json['mediaId']),
       resumePositionSeconds: resume.toDouble(),
       coveredSeconds: covered.toDouble(),
       completed: completed,
+      questUpdates: updates,
     );
   }
 }

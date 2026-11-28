@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../playback/models/playback_report.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/mini_player_bar.dart';
 import '../../playback/presentation/player_coordinator.dart';
@@ -28,6 +29,13 @@ typedef PlayerViewModelFactory = MediaPlayerViewModel Function({
   required String mediaId,
   required ContentType type,
   Future<void> Function()? onBeforeVideoPlay,
+  String? Function(DateTime nowUtc)? activeQuestSetId,
+  void Function(List<QuestProgressUpdate> updates)? onQuestUpdates,
+});
+
+typedef PlayerCoordinatorFactory = PlayerCoordinator Function({
+  String? Function(DateTime nowUtc)? activeQuestSetId,
+  void Function(List<QuestProgressUpdate> updates)? onQuestUpdates,
 });
 
 /// A session owns its entire navigation stack, including detail routes, tabs, and mini player.
@@ -55,7 +63,7 @@ class CatalogSession extends StatefulWidget {
   final PlaylistsViewModel Function() createPlaylistsViewModel;
   final QuestsViewModel Function() createQuestsViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
-  final PlayerCoordinator Function() createPlayerCoordinator;
+  final PlayerCoordinatorFactory createPlayerCoordinator;
   final VoidCallback onLogout;
   @override
   State<CatalogSession> createState() => _CatalogSessionState();
@@ -72,12 +80,29 @@ class _CatalogSessionState extends State<CatalogSession> {
   @override
   void initState() {
     super.initState();
-    _coordinator = widget.createPlayerCoordinator();
     _savedViewModel = widget.createSavedViewModel();
     _playlistsViewModel = widget.createPlaylistsViewModel();
     _questsViewModel = widget.createQuestsViewModel();
+    _coordinator = widget.createPlayerCoordinator(
+      activeQuestSetId: _questsViewModel.activeQuestSetIdFor,
+      onQuestUpdates: _questsViewModel.applyProgressUpdates,
+    );
     unawaited(_coordinator.restoreSessions());
   }
+
+  MediaPlayerViewModel _createPlayerViewModel({
+    required String mediaId,
+    required ContentType type,
+    Future<void> Function()? onBeforeVideoPlay,
+    String? Function(DateTime nowUtc)? activeQuestSetId,
+    void Function(List<QuestProgressUpdate> updates)? onQuestUpdates,
+  }) => widget.createPlayerViewModel(
+    mediaId: mediaId,
+    type: type,
+    onBeforeVideoPlay: onBeforeVideoPlay,
+    activeQuestSetId: activeQuestSetId ?? _questsViewModel.activeQuestSetIdFor,
+    onQuestUpdates: onQuestUpdates ?? _questsViewModel.applyProgressUpdates,
+  );
 
   @override
   void dispose() {
@@ -101,7 +126,7 @@ class _CatalogSessionState extends State<CatalogSession> {
           id: id,
           type: type,
           genres: const [],
-          createPlayerViewModel: widget.createPlayerViewModel,
+          createPlayerViewModel: _createPlayerViewModel,
           playerCoordinator: _coordinator,
         ),
       ),
@@ -171,7 +196,7 @@ class _CatalogSessionState extends State<CatalogSession> {
                       onPlaylistsChanged: () =>
                           unawaited(_playlistsViewModel.refresh()),
                       createViewModel: widget.createViewModel,
-                      createPlayerViewModel: widget.createPlayerViewModel,
+                      createPlayerViewModel: _createPlayerViewModel,
                       playerCoordinator: _coordinator,
                       onLogout: widget.onLogout,
                     ),

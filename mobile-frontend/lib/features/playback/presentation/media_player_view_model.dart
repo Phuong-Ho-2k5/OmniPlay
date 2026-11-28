@@ -23,6 +23,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
     DateTime Function()? now,
     PlaybackLifecycleCoordinator? lifecycleCoordinator,
     this.onBeforeVideoPlay,
+    this.activeQuestSetId,
+    this.onQuestUpdates,
   }) : _now = now ?? (() => DateTime.now().toUtc()) {
     _unregisterLifecycle = lifecycleCoordinator?.register(stopAndFlush);
   }
@@ -32,6 +34,8 @@ class MediaPlayerViewModel extends ChangeNotifier {
   final ContentType type;
   final DateTime Function() _now;
   final Future<void> Function()? onBeforeVideoPlay;
+  final String? Function(DateTime nowUtc)? activeQuestSetId;
+  final void Function(List<QuestProgressUpdate> updates)? onQuestUpdates;
   VoidCallback? _unregisterLifecycle;
 
   static const Duration _reportInterval = Duration(seconds: 15);
@@ -273,7 +277,12 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
     if (value.isPlaying && !value.isBuffering) {
       _videoEndReported = false;
-      _tracker?.onActivePlaying(_seconds(value.position), _now());
+      final nowUtc = _now();
+      _tracker?.onActivePlaying(
+        _seconds(value.position),
+        nowUtc,
+        questSetId: activeQuestSetId?.call(nowUtc),
+      );
       _startReportTimer();
     } else if (value.isBuffering) {
       _tracker?.cutSegment(_seconds(value.position), _now());
@@ -304,7 +313,12 @@ class MediaPlayerViewModel extends ChangeNotifier {
       player.positionStream.listen((pos) {
         if (_disposed) return;
         if (_state.playing && !_state.buffering) {
-          _tracker?.onActivePlaying(_seconds(pos), _now());
+          final nowUtc = _now();
+          _tracker?.onActivePlaying(
+            _seconds(pos),
+            nowUtc,
+            questSetId: activeQuestSetId?.call(nowUtc),
+          );
         }
         _setState(_state.copyWith(position: pos));
       }),
@@ -329,7 +343,12 @@ class MediaPlayerViewModel extends ChangeNotifier {
               : fallbackDuration;
 
           if (activelyPlaying) {
-            _tracker?.onActivePlaying(_seconds(player.position), _now());
+            final nowUtc = _now();
+            _tracker?.onActivePlaying(
+              _seconds(player.position),
+              nowUtc,
+              questSetId: activeQuestSetId?.call(nowUtc),
+            );
             _startReportTimer();
           } else if (buffering) {
             _tracker?.cutSegment(_seconds(player.position), _now());
@@ -466,7 +485,12 @@ class MediaPlayerViewModel extends ChangeNotifier {
 
     final nextPos = _seconds(clamped);
     if (wasActive) {
-      _tracker?.onActivePlaying(nextPos, _now());
+      final nowUtc = _now();
+      _tracker?.onActivePlaying(
+        nextPos,
+        nowUtc,
+        questSetId: activeQuestSetId?.call(nowUtc),
+      );
     }
     unawaited(_flushProgress(nextPos));
   }
@@ -540,7 +564,11 @@ class MediaPlayerViewModel extends ChangeNotifier {
       final pos = _seconds(_state.position);
       final nowUtc = _now();
       _tracker?.cutSegment(pos, nowUtc);
-      _tracker?.onActivePlaying(pos, nowUtc);
+      _tracker?.onActivePlaying(
+        pos,
+        nowUtc,
+        questSetId: activeQuestSetId?.call(nowUtc),
+      );
       unawaited(_flushProgress(pos));
     });
   }
@@ -595,27 +623,48 @@ class MediaPlayerViewModel extends ChangeNotifier {
           _markSyncFailed(tracker);
           break;
         }
-        final segments = tracker.pendingSegments;
+        final batches = tracker.pendingBatches();
         final clampedResume = resumeSeconds.clamp(
           0.0,
           tracker.durationSeconds.toDouble(),
         );
-        final result = await repository.reportProgress(
-          mediaId: mediaId,
-          report: PlaybackReport(
-            attemptId: tracker.attemptId,
-            resumePositionSeconds: clampedResume,
-            segments: segments,
-          ),
-        );
-        if (segments.isNotEmpty) {
-          tracker.acknowledgeUpTo(segments.last.eventSeq);
+        final reports = batches.isEmpty
+            ? [
+                PlaybackReport(
+                  attemptId: tracker.attemptId,
+                  resumePositionSeconds: clampedResume,
+                  questSetId: activeQuestSetId?.call(_now()),
+                  segments: const [],
+                ),
+              ]
+            : [
+                for (final batch in batches)
+                  PlaybackReport(
+                    attemptId: tracker.attemptId,
+                    resumePositionSeconds: clampedResume,
+                    questSetId: batch.questSetId,
+                    segments: batch.segments,
+                  ),
+              ];
+        PlaybackProgressResult? lastResult;
+        for (final report in reports) {
+          final result = await repository.reportProgress(
+            mediaId: mediaId,
+            report: report,
+          );
+          if (report.segments.isNotEmpty) {
+            tracker.acknowledgeUpTo(report.segments.last.eventSeq);
+          }
+          if (result.questUpdates.isNotEmpty) {
+            onQuestUpdates?.call(result.questUpdates);
+          }
+          lastResult = result;
         }
-        if (!_disposed) {
+        if (!_disposed && lastResult != null) {
           _setState(
             _state.copyWith(
-              coveredSeconds: result.coveredSeconds,
-              completed: result.completed,
+              coveredSeconds: lastResult.coveredSeconds,
+              completed: lastResult.completed,
               hasPendingSync: tracker.pendingSegments.isNotEmpty,
               clearSyncError: true,
             ),

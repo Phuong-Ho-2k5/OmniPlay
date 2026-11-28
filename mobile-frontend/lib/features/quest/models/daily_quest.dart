@@ -67,6 +67,20 @@ class DailyQuest {
   double get progressRatio =>
       targetCount <= 0 ? 0 : (progressCount / targetCount).clamp(0.0, 1.0);
 
+  DailyQuest copyWith({int? progressCount, QuestStatus? status}) => DailyQuest(
+    id: id,
+    code: code,
+    title: title,
+    slot: slot,
+    sourceScope: sourceScope,
+    mediaType: mediaType,
+    targetCount: targetCount,
+    progressCount: progressCount ?? this.progressCount,
+    status: status ?? this.status,
+    xpReward: xpReward,
+    eligibleMediaIds: eligibleMediaIds,
+  );
+
   static ContentType? _parseMediaType(Object? value) {
     if (value == null) return null;
     final raw = catalogString(value);
@@ -117,6 +131,14 @@ class DailyQuestSet {
             q.status == QuestStatus.claimed,
       )
       .length;
+
+  DailyQuestSet copyWith({List<DailyQuest>? quests}) => DailyQuestSet(
+    questSetId: questSetId,
+    questDate: questDate,
+    issuedAt: issuedAt,
+    expiresAt: expiresAt,
+    quests: quests ?? this.quests,
+  );
 
   factory DailyQuestSet.fromJson(Map<String, dynamic> json) {
     final issuedAt = DateTime.tryParse(catalogString(json['issuedAt']))
