@@ -2,7 +2,7 @@
 
 Backend Java 21 / Spring Boot 4.1.1, sử dụng Spring MVC, Spring Security, Spring Data JPA, PostgreSQL và Flyway.
 
-Backend hỗ trợ đăng ký, đăng nhập, refresh rotation, đăng xuất, JWT và danh mục/tìm kiếm nội dung. GET health cùng POST đăng ký/đăng nhập/refresh/logout truy cập công khai. Các API danh mục và ảnh bìa yêu cầu Bearer token.
+Backend hỗ trợ đăng ký, đăng nhập, refresh rotation, đăng xuất, xác thực JWT, danh mục/tìm kiếm nội dung, phát & stream media có HTTP Range, theo dõi tiến độ/segment 90%, hai phiên nghe Nhạc/Podcast độc lập, Đã lưu, playlist cá nhân, ghi nhận Skip hợp lệ, dọn playlist, Daily Quest (cấp bộ, cập nhật tiến độ, nhận XP/Level/Badge) và Mystery Box. GET health cùng bốn POST auth truy cập công khai; các API nghiệp vụ còn lại yêu cầu Bearer token.
 
 ## Yêu cầu
 
@@ -125,8 +125,6 @@ Lỗi dùng cấu trúc `{code, message, fieldErrors}`:
 | 409 | EMAIL_ALREADY_USED |
 | 500 | INTERNAL_ERROR |
 
-Chi tiết request, response và quy tắc token nằm trong [hợp đồng API](../docs/api/auth-contract.md).
-
 Lõi refresh rotation nằm trong `RefreshRotationService`: khóa dòng
 AuthSession, đổi hash token, ghi history và giữ hạn phiên gốc 168 giờ. Replay thu
 hồi đúng phiên; sai secret không đổi trạng thái. Kết quả bị từ chối được trả về
@@ -134,21 +132,31 @@ dưới dạng `RefreshResult.Rejected` để transaction thu hồi commit trư�
 gọi chuyển thành lỗi HTTP. Controller refresh/logout xử lý
 validation JSON và bảo mật cho các POST công khai.
 
-## API
+## API nghiệp vụ
 
 | Method | Endpoint | Chức năng |
 | --- | --- | --- |
 | GET | `/catalog` | Danh mục VIDEO, MUSIC, PODCAST, POST; lọc type và phân trang |
-| GET | `/catalog/search` | Tìm title bằng q, lọc type/genreId theo AND |
+| GET | `/catalog/search` | Tìm title bằng `q`, lọc `type`/`genreId` theo AND |
 | GET | `/catalog/{id}?type=...` | Chi tiết metadata hoặc văn bản Post |
 | GET | `/genres` | Danh sách thể loại |
 | GET | `/media/{id}/thumbnail` | Ảnh JPEG/PNG/WebP có JWT |
+| GET | `/media/{id}/playback` | Metadata phát, vị trí tiếp tục, độ phủ và đường dẫn stream |
+| GET | `/media/{id}/stream` | Stream media có JWT hỗ trợ HTTP Range (`200`/`206`/`416`) |
+| POST | `/me/playback-attempts` | Khởi tạo/xác minh lượt phát idempotent theo `attemptId` |
+| PUT | `/me/progress/{mediaId}` | Báo cáo segment/tiến độ 90% và đánh giá tiến độ Daily Quest |
+| POST | `/me/playback-skips` | Ghi nhận Skip hợp lệ trong hàng đợi playlist (khóa chống lặp) |
+| GET / PUT | `/me/listening-sessions/{type}` | Đọc/lưu hai phiên nghe độc lập (`music` / `podcast`) và hàng đợi nhạc |
+| GET / PUT | `/me/saved`, `/me/saved/{id}` | Danh sách Đã lưu theo `savedAt` giảm dần và lưu/bỏ lưu idempotent |
+| GET / POST / PATCH / DELETE | `/me/playlists`, `/me/playlists/{id}` | CRUD playlist cá nhân (tạo idempotent theo `requestId`) |
+| PUT / DELETE | `/me/playlists/{id}/items/{mediaId}` | Thêm/gỡ bài nhạc trong playlist (chỉ nhận MUSIC khả dụng) |
+| GET / PATCH | `/me/cleanup-suggestions`, `/me/cleanup-suggestions/{playlistItemId}` | Gợi ý dọn playlist (`>= 6` skip) và xử lý `KEEP`/`DISMISS`/`REMOVE` |
+| POST / GET | `/me/quests/today/ensure`, `/me/quests/today` | Cấp (khóa theo user, snapshot `SAVED`) và đọc bộ 4 Daily Quest theo ngày Việt Nam |
+| GET | `/me/quests/{questId}/media` | Danh sách media phù hợp của từng Quest (phân trang) |
+| POST | `/me/quests/{questId}/claim` | Nhận thưởng XP, cập nhật Level và mở khóa Badge idempotent |
+| POST | `/mystery-box/draw` | Chọn ngẫu nhiên media theo bộ lọc AND (`FOUND`/`NO_ALTERNATIVE`/`EMPTY`) |
 
-Danh sách trả `{items,page,size,totalElements}`, page từ 0, size mặc định 20 và tối đa 50. Nội dung phải đang khả dụng; saved lấy theo user trong JWT. Thể loại chỉ áp dụng cho media; POST kết hợp genreId trả rỗng. Các giá trị tìm kiếm được bind vào SQL; phân trang thực hiện sau khi gộp Media/Post.
-
-Ảnh nằm dưới `MEDIA_ROOT` (mặc định `./media`), trả `Cache-Control: private, no-store`. File phải là ảnh JPEG/PNG/WebP tối đa 10 MiB. Đường dẫn tuyệt đối và đường dẫn/symlink ra ngoài media root bị từ chối. Ảnh thiếu trả CONTENT_UNAVAILABLE; API không công khai đường dẫn vật lý. Tạo ảnh demo bằng script chuẩn bị media như bên dưới.
-
-Xem [contract danh mục](../docs/api/catalog-contract.md). Chưa có playback/stream/Range hoặc API ghi trạng thái lưu. Ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
+Danh sách phân trang trả `{items,page,size,totalElements}`, `page` từ 0, `size` mặc định 20 và tối đa 50. Nội dung hiển thị phải đang khả dụng (riêng `/me/saved` giữ lại mục ngừng phục vụ với `available: false` để người dùng bỏ lưu). Ảnh bìa và file media nằm dưới `MEDIA_ROOT` (mặc định `./media`), trả `Cache-Control: private, no-store`, chặn path traversal/symlink ra ngoài thư mục gốc và không công khai đường dẫn vật lý.
 
 ## Migration và seed
 
@@ -200,6 +208,11 @@ Maven đã cấu hình timezone UTC cho `spring-boot:run`. Trên macOS/Linux, d�
 src/main/java/com/omniplay/auth/       Xác thực, phiên và token
 src/main/java/com/omniplay/user/       Entity và repository tài khoản
 src/main/java/com/omniplay/catalog/    Danh mục, tìm kiếm, chi tiết và ảnh bìa
+src/main/java/com/omniplay/playback/   Metadata phát, stream HTTP Range, tiến độ 90%, Skip và hai phiên nghe
+src/main/java/com/omniplay/saved/      Danh sách Đã lưu và lưu/bỏ lưu nội dung
+src/main/java/com/omniplay/playlist/   Playlist cá nhân, bài nhạc trong playlist và gợi ý dọn playlist
+src/main/java/com/omniplay/quest/      Cấp bộ Daily Quest, đánh giá tiến độ và nhận thưởng XP/Level/Badge
+src/main/java/com/omniplay/mystery/    Mystery Box chọn ngẫu nhiên media theo bộ lọc
 src/main/java/com/omniplay/dto/        Request/response
 src/main/java/com/omniplay/config/     Bean và cấu hình bảo mật/JSON
 src/main/java/com/omniplay/common/     Lỗi API dùng chung

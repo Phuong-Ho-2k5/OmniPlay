@@ -65,6 +65,7 @@ class AuthGate extends StatelessWidget {
               savedRepository: dependencies.savedRepository,
               playlistRepository: dependencies.playlistRepository,
               questRepository: dependencies.questRepository,
+              mysteryBoxRepository: dependencies.mysteryBoxRepository,
               createViewModel: dependencies.createCatalogViewModel,
               createSavedViewModel: dependencies.createSavedViewModel,
               createPlaylistsViewModel: dependencies.createPlaylistsViewModel,

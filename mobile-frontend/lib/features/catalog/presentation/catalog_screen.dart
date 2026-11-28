@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../mystery/data/mystery_box_repository.dart';
+import '../../mystery/presentation/mystery_box_filter_screen.dart';
 import '../../playback/models/playback_report.dart';
 import '../../playback/presentation/media_player_view_model.dart';
 import '../../playback/presentation/mini_player_bar.dart';
@@ -46,6 +48,7 @@ class CatalogSession extends StatefulWidget {
     required this.savedRepository,
     required this.playlistRepository,
     required this.questRepository,
+    required this.mysteryBoxRepository,
     required this.createViewModel,
     required this.createSavedViewModel,
     required this.createPlaylistsViewModel,
@@ -58,6 +61,7 @@ class CatalogSession extends StatefulWidget {
   final SavedRepository savedRepository;
   final PlaylistRepository playlistRepository;
   final QuestRepository questRepository;
+  final MysteryBoxRepository mysteryBoxRepository;
   final CatalogViewModel Function() createViewModel;
   final SavedViewModel Function() createSavedViewModel;
   final PlaylistsViewModel Function() createPlaylistsViewModel;
@@ -173,6 +177,20 @@ class _CatalogSessionState extends State<CatalogSession> {
     );
   }
 
+  void _openMysteryBox() {
+    _navigator.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => MysteryBoxFilterScreen(
+          mysteryRepository: widget.mysteryBoxRepository,
+          catalogRepository: widget.repository,
+          savedRepository: widget.savedRepository,
+          onOpenItem: _openDetail,
+          onSavedChanged: () => unawaited(_savedViewModel.refresh()),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => NavigatorPopHandler<void>(
     onPopWithResult: (_) => _navigator.currentState!.pop(),
@@ -198,6 +216,7 @@ class _CatalogSessionState extends State<CatalogSession> {
                       createViewModel: widget.createViewModel,
                       createPlayerViewModel: _createPlayerViewModel,
                       playerCoordinator: _coordinator,
+                      onOpenMysteryBox: _openMysteryBox,
                       onLogout: widget.onLogout,
                     ),
                     SavedScreen(
@@ -285,6 +304,7 @@ class CatalogScreen extends StatefulWidget {
     required this.createViewModel,
     required this.createPlayerViewModel,
     required this.playerCoordinator,
+    required this.onOpenMysteryBox,
     required this.onLogout,
   });
   final CatalogRepository repository;
@@ -295,6 +315,7 @@ class CatalogScreen extends StatefulWidget {
   final CatalogViewModel Function() createViewModel;
   final PlayerViewModelFactory createPlayerViewModel;
   final PlayerCoordinator playerCoordinator;
+  final VoidCallback onOpenMysteryBox;
   final VoidCallback onLogout;
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -348,6 +369,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Card(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        child: ListTile(
+                          leading: const Icon(Icons.auto_awesome),
+                          title: const Text('Để bất ngờ chọn thay bạn'),
+                          subtitle: const Text('Khám phá Mystery Box'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: widget.onOpenMysteryBox,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: _search,
                         onChanged: _viewModel.setKeyword,

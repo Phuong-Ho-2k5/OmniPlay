@@ -15,6 +15,7 @@ import '../features/connection/data/health_repository.dart';
 import '../features/connection/presentation/connection_view_model.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
+import '../features/mystery/data/mystery_box_repository.dart';
 import '../features/playback/data/listening_session_repository.dart';
 import '../features/playback/data/playback_repository.dart';
 import '../features/playback/models/playback_report.dart';
@@ -65,6 +66,7 @@ class AppDependencies {
     savedRepository = RemoteSavedRepository(apiClient);
     playlistRepository = RemotePlaylistRepository(apiClient);
     questRepository = RemoteQuestRepository(apiClient);
+    mysteryBoxRepository = RemoteMysteryBoxRepository(apiClient);
     connectionViewModel = ConnectionViewModel(
       RemoteHealthRepository(apiClient),
     );
@@ -80,6 +82,7 @@ class AppDependencies {
   late final SavedRepository savedRepository;
   late final PlaylistRepository playlistRepository;
   late final QuestRepository questRepository;
+  late final MysteryBoxRepository mysteryBoxRepository;
   late final PlaybackLifecycleCoordinator playbackLifecycleCoordinator;
   late final ConnectionViewModel connectionViewModel;
 

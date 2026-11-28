@@ -1,6 +1,6 @@
 # OmniPlay Android
 
-Ứng dụng Flutter theo MVVM với đăng ký, đăng nhập, Khám phá, tìm kiếm và chi tiết nội dung. Luồng dữ liệu: View → ViewModel → Repository → ApiClient. ViewModel dùng ChangeNotifier, dependency được truyền qua constructor.
+Ứng dụng Flutter theo MVVM với đăng ký, đăng nhập, Khám phá, tìm kiếm, phát Video/Nhạc/Podcast, đọc Post, Đã lưu, Playlist, Dọn playlist, Daily Quest và Mystery Box. Luồng dữ liệu: View → ViewModel → Repository → ApiClient. ViewModel dùng ChangeNotifier, dependency được truyền qua constructor.
 
 ## Môi trường
 
@@ -82,18 +82,18 @@ ghi nhận, nhưng không ảnh hưởng phiên login mới.
 cho write/delete; lỗi disk và tình huống process bị kill ngay sau thao tác
 cần kiểm chứng trên thiết bị.
 
-Màn kết nối gọi `GET /actuator/health`; nút Thử lại cho phép gửi lại khi lỗi mạng hoặc dịch vụ.
-Health là API công khai nên không minh chứng refresh của request được bảo vệ;
-luồng đó cần kiểm tra với catalog thật khi API/màn nội dung được triển khai.
-Player/progress chưa có để nối dừng phát/lưu tiến độ vào logout.
+Trước khi đăng xuất, `AuthSessionController` chạy hook `PlaybackLifecycleCoordinator.stopAndFlushAll()` để dừng phát và đồng bộ tiến độ/phiên nghe còn chờ trước khi thu hồi token.
 
-## Khám phá và chi tiết
+## Tính năng chính trong ứng dụng
 
-Màn Khám phá tải bốn loại nội dung, tìm tiêu đề với debounce 300 ms, lọc loại/thể loại và phân trang bằng Tải thêm. Đổi điều kiện tải lại từ trang đầu. Kết quả rỗng, lỗi kết nối, lỗi thể loại và lỗi tải trang sau có thông báo/thao tác riêng. Bộ lọc thể loại với Post trả rỗng theo contract.
+- **Khám phá & chi tiết:** tải bốn loại nội dung, tìm tiêu đề với debounce 300 ms, lọc loại/thể loại, phân trang Tải thêm, ảnh bìa có JWT, đọc chi tiết Post và lối vào Mystery Box.
+- **Phát media & hai phiên nghe:** `video_player` cho Video và `just_audio` dùng chung qua `PlayerCoordinator` cho Nhạc/Podcast (đảm bảo chỉ một nguồn âm thanh phát tại một thời điểm); hỗ trợ Play/Pause/Seek, tự refresh token khi 401, theo dõi độ phủ thực tế tách biệt thanh tua, báo cáo định kỳ 15 giây kèm `questSetId`, khôi phục vị trí từ máy chủ, đồng bộ lại khi mất mạng và `MiniPlayerBar` xuyên suốt khi chuyển màn.
+- **Đã lưu:** nút lưu/bỏ lưu cho cả bốn loại nội dung, màn Đã lưu sắp xếp theo `savedAt` giảm dần và cho phép bỏ lưu cả nội dung ngừng phục vụ.
+- **Playlist, Skip & Dọn playlist:** tạo (idempotent theo `requestId`), đổi tên, xóa có xác nhận, thêm/gỡ bài nhạc, phát hàng đợi Previous/Next (chỉ gửi Skip hợp lệ khi người dùng chủ động nhấn Next trước khi bài kết thúc) và màn Dọn playlist (`Giữ bài` / `Bỏ qua` / `Gỡ` có xác nhận).
+- **Daily Quest:** tab Quest hiển thị bộ 4 nhiệm vụ theo ngày Việt Nam, màn danh sách media phù hợp của từng Quest, tự đồng bộ tiến độ từ báo cáo phát và nút nhận thưởng XP/Level/Badge kèm xử lý đang nhận, đã nhận, thử nhận lại và hết hạn ngày mới.
+- **Mystery Box:** màn bộ lọc (loại media, thể loại, thời lượng tối đa `> 0`) và màn kết quả hỗ trợ Phát ngay, Lưu/Bỏ lưu, Mở hộp khác (`excludeMediaId`), Chỉnh bộ lọc cùng trạng thái riêng cho `NO_ALTERNATIVE`, `EMPTY` và lỗi mạng.
 
-Mỗi thẻ mở chi tiết bằng cả ID và type. Post hiển thị văn bản đầy đủ, media hiển thị metadata. Ảnh tải bằng Bearer token qua cùng ApiClient/refresh như JSON; ảnh lỗi dùng hình thay thế. saved chỉ là chỉ báo đọc từ backend, chưa có nút ghi trạng thái lưu hoặc player.
-
-Mỗi phiên có Navigator riêng; logout hoặc đổi tài khoản loại toàn bộ stack chi tiết và state cũ. ViewModel bỏ completion sau dispose hoặc sau khi bộ lọc đã đổi. Xem [contract danh mục](../docs/api/catalog-contract.md). Ngày 6 chưa được kiểm thử theo yêu cầu người dùng.
+Mỗi phiên đăng nhập sở hữu một `CatalogSession` với `Navigator`, `PlayerCoordinator` và các `ViewModel` riêng; đăng xuất hoặc đổi tài khoản giải phóng toàn bộ stack và trạng thái cũ.
 
 ## Kiểm tra mã nguồn
 
@@ -115,14 +115,19 @@ APK nằm tại `build/app/outputs/flutter-apk/app-debug.apk`. Có thể truyề
 ## Cấu trúc mã nguồn
 
 ```text
-lib/app/                       Khởi tạo ứng dụng và dependency
-lib/core/config/               Môi trường và URL backend
-lib/core/network/              HTTP, timeout và lỗi API
-lib/features/auth/data/        AuthRepository và session store
-lib/features/auth/models/      RegisteredUser và TokenPair
+lib/app/                        Khởi tạo ứng dụng và dependency
+lib/core/config/                Môi trường và URL backend
+lib/core/network/               HTTP, timeout và lỗi API
+lib/features/auth/data/         AuthRepository và session store
+lib/features/auth/models/       RegisteredUser và TokenPair
 lib/features/auth/presentation/ State, validator, ViewModel, biểu mẫu và AuthGate
-lib/features/connection/       Repository, ViewModel và màn kết nối
-lib/features/catalog/          Model, repository, Khám phá và chi tiết nội dung
+lib/features/connection/        Repository, ViewModel và màn kết nối
+lib/features/catalog/           Model, repository, Khám phá, điều hướng tab và chi tiết nội dung
+lib/features/playback/          Trình phát Video/Audio, segment tracker, PlayerCoordinator và Mini Player
+lib/features/saved/             Repository, ViewModel và màn Đã lưu
+lib/features/playlist/          Playlist cá nhân, chi tiết playlist và màn Dọn playlist
+lib/features/quest/             Daily Quest hôm nay, danh sách media của Quest và nhận thưởng XP/Badge
+lib/features/mystery/           Bộ lọc và kết quả Mystery Box
 ```
 
 AppDependencies sở hữu HTTP client, raw transport, AuthRepository, session
